@@ -58,7 +58,7 @@ bun run build
 Le site a deux parties à héberger :
 
 1. **Interface (Vercel).** Importez le projet : Vercel construit l'interface Vite. Le dossier `api/` contient un relais qui envoie `/api/*` vers votre serveur, pour que la session par cookie reste sur le même domaine.
-2. **Serveur et base de données.** Le serveur Bun se construit avec `server/Dockerfile` (`docker build -f server/Dockerfile -t arcquest-api .`) et a besoin d'une base Postgres.
+2. **Serveur et base de données.** Le serveur Bun se construit avec le `Dockerfile` à la racine (`docker build -t arcquest-api .`) et a besoin d'une base Postgres.
 
 Variables du serveur : `DATABASE_URL`, `VITE_VAULT_ADDRESS`, `COOKIE_SECURE=true` (obligatoire en HTTPS), `ADMIN_EMAILS` ou `ADMIN_WALLETS`.
 
