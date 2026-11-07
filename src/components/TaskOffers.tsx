@@ -99,19 +99,28 @@ export default function TaskOffers() {
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [page, setPage] = useState(1)
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['tasks', q, type, page],
     queryFn: () => api<{ items: Task[]; total: number; pageSize: number }>(`/tasks?q=${encodeURIComponent(q)}&type=${type}&page=${page}&pageSize=10`),
     placeholderData: keepPreviousData,
+    // Les tâches publiées par les autres comptes apparaissent sans recharger la page
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
   })
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / (data?.pageSize ?? 10)))
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--subtle)' }} />
-        <input style={{ ...inputStyle, paddingLeft: 38, minHeight: 44 }} placeholder="Rechercher une tâche" value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1) }} />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--subtle)' }} />
+          <input style={{ ...inputStyle, paddingLeft: 38, minHeight: 44 }} placeholder="Rechercher une tâche" value={q}
+            onChange={(e) => { setQ(e.target.value); setPage(1) }} />
+        </div>
+        <button onClick={() => void refetch()} disabled={isFetching} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex-shrink-0"
+          style={{ background: 'rgba(26,47,110,0.07)', color: 'var(--accent)', opacity: isFetching ? 0.6 : 1 }}>
+          {isFetching ? 'Mise à jour…' : 'Actualiser'}
+        </button>
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {TASK_TYPES.map((t) => (

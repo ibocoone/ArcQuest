@@ -68,6 +68,8 @@ Deux services gratuits suffisent :
 
 Avant d'envoyer une modification de l'interface sur GitHub, reconstruisez le site avec `bunx vite build --outDir web --emptyOutDir` : le dossier `web` fait partie du dépôt et Render le copie tel quel.
 
+Variable optionnelle `RPC_URL_Arc_Testnet` : adresse d'un fournisseur RPC pour les vérifications du serveur. Sans elle, le RPC public d'Arc est utilisé. Ne la mettez jamais dans une variable `VITE_`.
+
 Variables du service Render : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (déjà dans `render.yaml`).
 
 Sur l'offre gratuite, Render met le service en veille après un moment d'inactivité : la première requête suivante est plus lente.

@@ -6,6 +6,7 @@ const CHAIN_ID = 5042002
 const VAULT = (process.env.VITE_VAULT_ADDRESS ?? '').toLowerCase()
 
 function rpcUrl(): string {
+  if (process.env.RPC_URL_Arc_Testnet) return process.env.RPC_URL_Arc_Testnet
   const base = process.env.RPC_PROXY_BASE_URL
   const chains = (process.env.RPC_PROXY_CHAINS ?? '').split(',')
   if (base && chains.includes('Arc_Testnet')) {
