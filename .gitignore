@@ -3,4 +3,3 @@
 server/uploads/
 node_modules/
 .circle/
-dist/

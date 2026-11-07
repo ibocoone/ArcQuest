@@ -61,10 +61,13 @@ Le parcours complet avec de vraies transactions sur Arc Testnet (dépôt, tâche
 
 ## Mise en ligne
 
-Trois services, tous avec une offre gratuite :
+Deux services gratuits suffisent :
 
 1. **Base de données (Neon).** Une base Postgres. Le serveur crée ses tables au démarrage.
-2. **Serveur (Render).** Construit avec le `Dockerfile` à la racine, décrit par `render.yaml`. Variables : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS`.
-3. **Interface (Netlify).** Construite par `netlify.toml` (`npx vite build`, dossier `dist`). Variables de construction : `VITE_VAULT_ADDRESS` et `VITE_VAULT_DEPLOY_BLOCK`. Une règle de redirection envoie `/api/*` vers le serveur Render, pour que la session par cookie reste sur le même domaine.
+2. **Site et serveur (Render).** Un seul service, décrit par `render.yaml` et construit avec le `Dockerfile` : il sert le site (dossier `dist`) et l'API (`/api/*`) à la même adresse, donc la session par cookie reste sur le même site.
 
-Sur l'offre gratuite, le serveur Render se met en veille après un moment d'inactivité : la première requête suivante est plus lente.
+Avant d'envoyer une modification de l'interface sur GitHub, reconstruisez le site avec `bunx vite build` : le dossier `dist` fait partie du dépôt et Render le copie tel quel.
+
+Variables du service Render : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (déjà dans `render.yaml`).
+
+Sur l'offre gratuite, Render met le service en veille après un moment d'inactivité : la première requête suivante est plus lente.

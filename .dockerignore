@@ -2,11 +2,10 @@ node_modules
 .env
 .env.*
 .git
-dist
 contracts
 scripts
+lib
 traces.jsonl
 console.jsonl
 server/uploads
 server/tests
-src/components
