@@ -32,7 +32,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
     setStep('working')
     try {
       const hash = await deposit(amount)
-      void qc.invalidateQueries({ queryKey: ['vault-history'] })
+      void qc.invalidateQueries({ queryKey: ['activity'] })
       setLastTx(hash)
       setAmount('')
       onDone()

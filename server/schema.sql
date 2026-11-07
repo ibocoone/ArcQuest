@@ -132,3 +132,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Les preuves sont stockées en base : le serveur n'a besoin d'aucun disque
 ALTER TABLE uploads ADD COLUMN IF NOT EXISTS data bytea;
+
+-- Historique des opérations du coffre (déposées par le client, relues et vérifiées sur la blockchain)
+CREATE TABLE IF NOT EXISTS activity (
+  id bigserial PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tx_hash text NOT NULL,
+  log_index int NOT NULL,
+  kind text NOT NULL CHECK (kind IN ('deposit','withdraw','fund','reward','refund')),
+  amount numeric(20,6) NOT NULL,
+  at timestamptz NOT NULL,
+  UNIQUE (tx_hash, log_index)
+);
+CREATE INDEX IF NOT EXISTS activity_user_at ON activity (user_id, at DESC);

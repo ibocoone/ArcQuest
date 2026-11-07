@@ -1,5 +1,7 @@
 import { one, rows, sql } from '../db'
-import { HttpError, rateLimit, route, str, uuid, type AuthUser } from '../http'
+import { HttpError, rateLimit, route, str, txHash, uuid, type AuthUser } from '../http'
+import { activityFromTx } from '../chain'
+import { formatUnits } from 'viem'
 
 const num = (v: unknown) => Number(v ?? 0)
 
@@ -77,4 +79,26 @@ route('POST', '/reports', 'user', async (c) => {
     throw new HttpError(409, 'Vous avez déjà signalé cet élément.')
   }
   await sql`INSERT INTO reports (reporter_id, target_type, target_id, reason) VALUES (${me.id}, ${type}, ${target}, ${reason})`
+})
+
+// ── Historique du portefeuille ────────────────────────────────────────────────
+
+route('POST', '/me/activity', 'user', async (c) => {
+  const me = c.user as AuthUser
+  rateLimit(`activity:${me.id}`, 200, 3_600_000)
+  if (!me.wallet_address) throw new HttpError(400, 'Aucun portefeuille lié.')
+  const hash = txHash((await c.json()).txHash)
+  const entries = await activityFromTx(hash, me.wallet_address)
+  for (const e of entries) {
+    await sql`INSERT INTO activity (user_id, tx_hash, log_index, kind, amount, at)
+      VALUES (${me.id}, ${hash}, ${e.logIndex}, ${e.kind}, ${formatUnits(e.amountRaw, 6)}, ${e.at.toISOString()})
+      ON CONFLICT (tx_hash, log_index) DO NOTHING`
+  }
+  return { recorded: entries.length }
+})
+
+route('GET', '/me/activity', 'user', async (c) => {
+  const list = await rows<Record<string, unknown>>(sql`
+    SELECT id, tx_hash, kind, amount, at FROM activity WHERE user_id = ${(c.user as AuthUser).id} ORDER BY at DESC, id DESC LIMIT 100`)
+  return { items: list.map((a) => ({ id: String(a.id), txHash: a.tx_hash, kind: a.kind, amount: a.amount, at: a.at })) }
 })

@@ -1,5 +1,7 @@
 import { useAccount, usePublicClient, useReadContract, useWriteContract } from 'wagmi'
 import { erc20Abi, keccak256, stringToBytes } from 'viem'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '../api'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { Amount, parseAmount, usdcDecimalsFor } from '@/onchain-money'
 import { ARC_TESTNET_ID, VAULT_ADDRESS, vaultAbi } from '@/contracts/vault'
@@ -33,6 +35,7 @@ export function useVaultActions() {
   const { address } = useAccount()
   const publicClient = usePublicClient({ chainId: ARC_TESTNET_ID })
   const { writeContractAsync } = useWriteContract()
+  const qc = useQueryClient()
   const usdc = getUsdc(ARC_TESTNET_ID)
 
   const ready = () => {
@@ -44,6 +47,10 @@ export function useVaultActions() {
     const { client } = ready()
     const receipt = await client.waitForTransactionReceipt({ hash })
     if (receipt.status !== 'success') throw new Error('Transaction échouée onchain')
+    // Le serveur relit la transaction sur la blockchain et l'ajoute à l'historique ; sans effet sur l'opération
+    void api('/me/activity', { body: { txHash: hash } })
+      .then(() => qc.invalidateQueries({ queryKey: ['activity'] }))
+      .catch(() => undefined)
     return hash
   }
 

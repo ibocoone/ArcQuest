@@ -27,7 +27,7 @@ export default function WalletWithdraw() {
     setBusy(true)
     try {
       const hash = await withdraw(amount)
-      void qc.invalidateQueries({ queryKey: ['vault-history'] })
+      void qc.invalidateQueries({ queryKey: ['activity'] })
       setLastTx(hash)
       setAmount('')
       void refetch()

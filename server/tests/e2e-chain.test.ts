@@ -85,7 +85,17 @@ describe.skipIf(!keys)('parcours complet sur Arc Testnet', () => {
       const dep = parseUnits('0.3', 6)
       const b0 = await bal(creatorAcc.address)
       await wait(await creatorW.writeContract({ address: usdcAddr, abi: erc20Abi, functionName: 'approve', args: [VAULT, dep] }))
-      await wait(await creatorW.writeContract({ address: VAULT, abi: vaultAbi, functionName: 'deposit', args: [dep] }))
+      const depHash = await wait(await creatorW.writeContract({ address: VAULT, abi: vaultAbi, functionName: 'deposit', args: [dep] }))
+      // Historique : la transaction est relue sur la blockchain, enregistrée une seule fois, et visible uniquement par son propriétaire
+      expect((await creator.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(1)
+      expect((await creator.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(1)
+      expect((await worker.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(0)
+      const hist = (await creator.req('GET', '/me/activity')).body.items.filter((a: any) => a.txHash === depHash)
+      expect(hist.length).toBe(1)
+      expect(hist[0].kind).toBe('deposit')
+      expect(Number(hist[0].amount)).toBe(0.3)
+      expect((await worker.req('GET', '/me/activity')).body.items.some((a: any) => a.txHash === depHash)).toBe(false)
+      expect((await creator.req('POST', '/me/activity', { txHash: '0x' + '1'.repeat(64) })).status).toBe(400)
       expect(await bal(creatorAcc.address)).toBe(b0 + dep)
 
       // 2. Publication d'une tâche : récompense 0.05 x 2 places = 0.1 réservé
