@@ -53,15 +53,18 @@ bun run build
 - Pas de commission de la plateforme.
 - Les fichiers de preuve sont stockés sur le disque du serveur.
 
+## Tests
+
+`bun run test:server` lance les tests de l'API (comptes, anti-triche, preuves, modération, administration) et vérifie que chaque écran reçoit tous les champs qu'il attend. Le serveur doit tourner (`bun run server`).
+
+Le parcours complet avec de vraies transactions sur Arc Testnet (dépôt, tâche, soumission, paiement, retrait, concours) s'active avec `E2E_KEYS=/chemin/cles.json bun run test:server`, où le fichier contient deux clés de portefeuilles jetables `{"creator": "0x…", "worker": "0x…"}`, la première financée en USDC de test. N'utilisez jamais une clé qui détient de la valeur réelle.
+
 ## Mise en ligne
 
-Le site a deux parties à héberger :
+Trois services, tous avec une offre gratuite :
 
-1. **Interface (Vercel).** Importez le projet : Vercel construit l'interface Vite. Le dossier `api/` contient un relais qui envoie `/api/*` vers votre serveur, pour que la session par cookie reste sur le même domaine.
-2. **Serveur et base de données.** Le serveur Bun se construit avec le `Dockerfile` à la racine (`docker build -t arcquest-api .`) et a besoin d'une base Postgres.
+1. **Base de données (Neon).** Une base Postgres. Le serveur crée ses tables au démarrage.
+2. **Serveur (Render).** Construit avec le `Dockerfile` à la racine, décrit par `render.yaml`. Variables : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS`.
+3. **Interface (Netlify).** Construite par `netlify.toml` (`npx vite build`, dossier `dist`). Variables de construction : `VITE_VAULT_ADDRESS` et `VITE_VAULT_DEPLOY_BLOCK`. Une règle de redirection envoie `/api/*` vers le serveur Render, pour que la session par cookie reste sur le même domaine.
 
-Variables du serveur : `DATABASE_URL`, `VITE_VAULT_ADDRESS`, `COOKIE_SECURE=true` (obligatoire en HTTPS), `ADMIN_EMAILS` ou `ADMIN_WALLETS`.
-
-Variable côté Vercel : `API_ORIGIN` = adresse https du serveur, par exemple `https://api.exemple.com` (sans `/api` à la fin).
-
-Variable de l'interface à fournir à la construction : `VITE_VAULT_ADDRESS` et `VITE_VAULT_DEPLOY_BLOCK`.
+Sur l'offre gratuite, le serveur Render se met en veille après un moment d'inactivité : la première requête suivante est plus lente.

@@ -33,6 +33,7 @@ export default function WalletWithdraw() {
       void refetch()
       toast.success(`$${num.toFixed(2)} USDC envoyés vers votre portefeuille.`)
     } catch (err) {
+      console.error('Retrait échoué :', err)
       const msg = err instanceof Error ? err.message : ''
       toast.error(/rejected|denied/i.test(msg) ? 'Transaction annulée.' : 'Le retrait a échoué. Réessayez.')
     } finally {

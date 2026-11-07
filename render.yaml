@@ -1,0 +1,20 @@
+# Serveur ArcQuest sur Render (offre gratuite). La base Postgres est hébergée à part (Neon).
+services:
+  - type: web
+    name: arcquest-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: frankfurt
+    healthCheckPath: /me
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: VITE_VAULT_ADDRESS
+        value: "0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274"
+      - key: ADMIN_WALLETS
+        sync: false

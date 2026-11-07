@@ -13,9 +13,16 @@ interface ContestRow {
   entries: number; my_status: string | null
 }
 
+/** Bun renvoie parfois le jsonb sous forme de texte : on normalise en tableau. */
+const prizesOf = (v: unknown): Prize[] => {
+  let x: unknown = v
+  for (let i = 0; i < 2 && typeof x === 'string'; i++) x = JSON.parse(x) as unknown
+  return Array.isArray(x) ? (x as Prize[]) : []
+}
+
 const out = (k: ContestRow) => ({
   id: k.id, title: k.title, description: k.description, prompt: k.prompt, type: k.type, endsAt: k.ends_at,
-  slots: k.slots, prizes: k.prizes, prizePool: k.prize_pool, status: k.status, createdAt: k.created_at,
+  slots: k.slots, prizes: prizesOf(k.prizes), prizePool: k.prize_pool, status: k.status, createdAt: k.created_at,
   creator: k.creator, creatorId: k.creator_id, entries: k.entries, myStatus: k.my_status,
 })
 
@@ -135,7 +142,7 @@ route('POST', '/entries/:id/award', 'user', async (c) => {
   const e = await ownedEntry(c)
   const b = await c.json()
   const place = str(b.prizePlace, 1, 20, 'Rang')
-  const prize = e.prizes.find((p) => p.place === place)
+  const prize = prizesOf(e.prizes).find((p) => p.place === place)
   if (!prize) throw new HttpError(400, 'Ce rang n\'existe pas dans le concours.')
   if (await one(sql`SELECT 1 FROM contest_entries WHERE contest_id = ${e.contest_id} AND prize_place = ${place}`)) throw new HttpError(409, 'Ce prix est déjà attribué.')
   if (!e.wallet) throw new HttpError(400, 'Le participant n\'a pas de portefeuille lié.')

@@ -16,7 +16,8 @@ export const config = createConfig({
   chains: [arcTestnet, mainnet], // mainnet needed for ENS resolution
   connectors: [injected()],
   transports: {
-    [arcTestnet.id]: http(),
+    // Le RPC public peut refuser des requêtes (429) quand il est sollicité : on réessaie plus longtemps
+    [arcTestnet.id]: http(undefined, { retryCount: 5, retryDelay: 500 }),
     [mainnet.id]: http(), // ENS resolution uses mainnet
   },
 })

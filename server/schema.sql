@@ -129,3 +129,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   detail jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Les preuves sont stockées en base : le serveur n'a besoin d'aucun disque
+ALTER TABLE uploads ADD COLUMN IF NOT EXISTS data bytea;

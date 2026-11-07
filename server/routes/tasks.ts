@@ -1,4 +1,3 @@
-import { mkdir } from 'node:fs/promises'
 import { one, rows, sql } from '../db'
 import {
   HttpError, amount, audit, httpUrl, notify, optStr, rateLimit, route, str, txHash, uuid, type AuthUser,
@@ -6,7 +5,6 @@ import {
 import { toRaw, verifyFunding, verifyRelease } from '../chain'
 
 const TYPES = ['social', 'video', 'community', 'manuel', 'autre']
-const UPLOAD_DIR = `${import.meta.dir}/../uploads`
 const isDup = (e: unknown) => String(e instanceof Error ? e.message : e).includes('duplicate key')
 
 interface TaskRow {
@@ -48,18 +46,16 @@ route('POST', '/uploads', 'user', async (c) => {
   const bytes = new Uint8Array(await file.arrayBuffer())
   const mime = sniff(bytes)
   if (!mime) throw new HttpError(400, 'Formats acceptés : PNG, JPEG, WebP.')
-  const row = await one<{ id: string }>(sql`INSERT INTO uploads (user_id, mime, size) VALUES (${me.id}, ${mime}, ${bytes.length}) RETURNING id`)
+  const row = await one<{ id: string }>(sql`INSERT INTO uploads (user_id, mime, size, data) VALUES (${me.id}, ${mime}, ${bytes.length}, ${Buffer.from(bytes)}) RETURNING id`)
   if (!row) throw new HttpError(500, 'Envoi impossible.')
-  await mkdir(UPLOAD_DIR, { recursive: true })
-  await Bun.write(`${UPLOAD_DIR}/${row.id}`, bytes)
   return { id: row.id }
 })
 
 route('GET', '/uploads/:id', 'user', async (c) => {
   const me = c.user as AuthUser
   const id = uuid(c.params.id, 'Fichier')
-  const up = await one<{ user_id: string; mime: string }>(sql`SELECT user_id, mime FROM uploads WHERE id = ${id}`)
-  if (!up) throw new HttpError(404, 'Fichier introuvable.')
+  const up = await one<{ user_id: string; mime: string; data: Uint8Array | null }>(sql`SELECT user_id, mime, data FROM uploads WHERE id = ${id}`)
+  if (!up?.data) throw new HttpError(404, 'Fichier introuvable.')
   let allowed = up.user_id === me.id || me.role === 'admin'
   if (!allowed) {
     allowed = !!(await one(sql`
@@ -68,7 +64,7 @@ route('GET', '/uploads/:id', 'user', async (c) => {
       SELECT 1 FROM contest_entries e JOIN contests k ON k.id = e.contest_id WHERE e.proof_file = ${id} AND k.creator_id = ${me.id}`))
   }
   if (!allowed) throw new HttpError(403, 'Accès refusé.')
-  return new Response(Bun.file(`${UPLOAD_DIR}/${id}`), {
+  return new Response(new Uint8Array(up.data), {
     headers: { 'content-type': up.mime, 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox", 'cache-control': 'private, max-age=3600' },
   })
 })

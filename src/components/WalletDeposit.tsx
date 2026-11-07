@@ -38,6 +38,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
       onDone()
       toast.success(`$${num.toFixed(2)} USDC déposés sur votre solde ArcQuest.`)
     } catch (err) {
+      console.error('Dépôt échoué :', err)
       const msg = err instanceof Error ? err.message : ''
       toast.error(/rejected|denied/i.test(msg) ? 'Transaction annulée.' : 'Le dépôt a échoué. Vérifiez votre solde USDC et réessayez.')
     } finally {
