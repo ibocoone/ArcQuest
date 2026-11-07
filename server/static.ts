@@ -1,8 +1,8 @@
-// Sert l'interface construite (dossier dist) : un seul service héberge le site et l'API.
+// Sert l'interface construite (dossier web) : un seul service héberge le site et l'API.
 import { stat } from 'node:fs/promises'
 import { join, normalize } from 'node:path'
 
-const DIST = process.env.STATIC_DIR ?? join(import.meta.dir, '..', 'dist')
+const DIST = process.env.STATIC_DIR ?? join(import.meta.dir, '..', 'web')
 const SECURITY = { 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin-when-cross-origin', 'x-frame-options': 'DENY' }
 
 const isFile = async (p: string) => (await stat(p).catch(() => null))?.isFile() ?? false

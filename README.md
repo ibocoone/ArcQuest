@@ -64,9 +64,9 @@ Le parcours complet avec de vraies transactions sur Arc Testnet (dépôt, tâche
 Deux services gratuits suffisent :
 
 1. **Base de données (Neon).** Une base Postgres. Le serveur crée ses tables au démarrage.
-2. **Site et serveur (Render).** Un seul service, décrit par `render.yaml` et construit avec le `Dockerfile` : il sert le site (dossier `dist`) et l'API (`/api/*`) à la même adresse, donc la session par cookie reste sur le même site.
+2. **Site et serveur (Render).** Un seul service, décrit par `render.yaml` et construit avec le `Dockerfile` : il sert le site (dossier `web`) et l'API (`/api/*`) à la même adresse, donc la session par cookie reste sur le même site.
 
-Avant d'envoyer une modification de l'interface sur GitHub, reconstruisez le site avec `bunx vite build` : le dossier `dist` fait partie du dépôt et Render le copie tel quel.
+Avant d'envoyer une modification de l'interface sur GitHub, reconstruisez le site avec `bunx vite build --outDir web --emptyOutDir` : le dossier `web` fait partie du dépôt et Render le copie tel quel.
 
 Variables du service Render : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (déjà dans `render.yaml`).
 
