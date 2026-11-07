@@ -1,75 +1,74 @@
 # ArcQuest
 
-Plateforme française de micro-tâches et de concours payés en USDC sur Arc Testnet. Les utilisateurs créent un compte par e-mail ou portefeuille, déposent du USDC dans un coffre onchain, publient des tâches, réalisent celles des autres avec une preuve, sont approuvés et payés depuis le portefeuille du créateur, puis retirent leur USDC à tout moment.
+A micro-task and contest platform paid in USDC on Arc Testnet. Users sign up with an email or a wallet, deposit USDC into an onchain vault, publish tasks, complete other people's tasks with proof, get approved and paid from the creator's wallet, and withdraw their USDC at any time.
 
 Built with [Arc Studio](https://studio.arc.io)
 
-## Fonctionnalités
+## Features
 
-- Comptes par e-mail et mot de passe, ou par signature de portefeuille. Sessions côté serveur.
-- Tâches et concours partagés entre tous les utilisateurs, avec recherche, filtres et pagination.
-- Une seule soumission par personne et par tâche, places décomptées, date limite, preuve obligatoire (lien ou capture d'écran), motif en cas de refus.
-- Approbation et paiement par le créateur, vérifiés sur la blockchain avant d'être enregistrés.
-- Dépôt, retrait et remboursement des fonds non utilisés, historique lu dans le contrat.
-- Notifications dans l'application, signalements, espace d'administration (modération, suspension, journal).
-- Pages Conditions d'utilisation et Confidentialité (modèles à faire relire par un juriste).
+- Accounts with email and password, or with a wallet signature. Server-side sessions.
+- Tasks and contests shared between all users, with search, filters and pagination.
+- One submission per person per task, places counted down, deadline, required proof (link or screenshot), reason given for any rejection.
+- Approval and payment by the creator, verified on the blockchain before being recorded.
+- Deposit, withdrawal and recovery of unused funds; wallet history recorded by the server after verifying each transaction onchain.
+- In-app notifications, reports, and an admin area (finances, moderation, accounts, payments, action log).
+- Terms of Use and Privacy Policy pages (templates to be reviewed by a lawyer).
 
-## Stack
+## Tech stack
 
-React, TypeScript, Vite, Tailwind CSS, wagmi, viem, ConnectKit, TanStack Query. Serveur Bun avec Postgres. Contrat Solidity `contracts/ArcQuestVault.sol`.
+React, TypeScript, Vite, Tailwind CSS, wagmi, viem, ConnectKit, TanStack Query. Bun server with Postgres. Solidity contract `contracts/ArcQuestVault.sol`.
 
-## Développement
+## Development
 
-Prérequis : [Bun](https://bun.sh), Docker (pour Postgres).
+Prerequisites: [Bun](https://bun.sh) and Docker (for Postgres).
 
 ```
 docker run -d --name postgres --restart unless-stopped -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=earnfi -v pgdata:/var/lib/postgresql -p 5432:5432 postgres:18-alpine
 bun install
-bun run server      # API sur le port 3001 (crée les tables au démarrage)
-bun run dev         # interface sur le port 5173, /api est redirigé vers l'API
-bun run test:server # tests de l'API (le serveur doit tourner)
+bun run server      # API on port 3001 (creates the tables on startup)
+bun run dev         # app on port 5173, /api is proxied to the API
+bun run test:server # API tests (the server must be running)
 bun run check       # lint + typecheck
-bun run build
+bunx vite build --outDir web --emptyOutDir   # production build of the app
 ```
 
-## Variables d'environnement
+## Environment variables
 
-- `DATABASE_URL` : connexion Postgres.
-- `API_PORT` : port de l'API (3001 par défaut).
-- `ADMIN_EMAILS`, `ADMIN_WALLETS` : e-mails et adresses (séparés par des virgules) qui obtiennent le rôle administrateur à l'inscription ou à la connexion.
-- `COOKIE_SECURE` : `true` en production HTTPS.
-- `VITE_VAULT_ADDRESS` : adresse du contrat ArcQuestVault sur Arc Testnet.
-- `VITE_VAULT_DEPLOY_BLOCK` : bloc de déploiement du contrat (point de départ de l'historique).
-- `RPC_PROXY_BASE_URL`, `RPC_PROXY_TOKEN`, `RPC_PROXY_CHAINS` : fournies par Arc Studio, facultatives en dehors d'Arc Studio (sinon le RPC public est utilisé).
+- `DATABASE_URL`: Postgres connection string.
+- `API_PORT`: API port (3001 by default; `PORT` takes precedence when set by the host).
+- `ADMIN_EMAILS`, `ADMIN_WALLETS`: comma-separated emails and wallet addresses that get the administrator role.
+- `COOKIE_SECURE`: `true` in production over HTTPS.
+- `VITE_VAULT_ADDRESS`: address of the ArcQuestVault contract on Arc Testnet.
+- `VITE_VAULT_DEPLOY_BLOCK`: deployment block of the contract.
+- `RPC_URL_Arc_Testnet`: optional RPC provider URL used by the server for its onchain checks. Never put it in a `VITE_` variable.
+- `RPC_PROXY_BASE_URL`, `RPC_PROXY_TOKEN`, `RPC_PROXY_CHAINS`: provided by Arc Studio, optional elsewhere (the public RPC is used otherwise).
 
-## Contrat
+## Contract
 
-`contracts/ArcQuestVault.sol` : coffre USDC sans administrateur ni frais. Chaque utilisateur dépose, retire et réserve de l'argent pour une tâche ou un concours. Seul le créateur peut payer les travailleurs depuis sa propre réserve, et la récupérer une fois le délai écoulé.
+`contracts/ArcQuestVault.sol`: a USDC vault with no administrator and no fees. Each user deposits, withdraws and reserves money for a task or contest. Only the creator can pay workers out of the money they reserved, and can recover what is left after the lock delay.
 
-## Limites actuelles
+## Current limits
 
-- Les notifications sont dans l'application uniquement (pas d'e-mails).
-- Le parrainage est un compteur : aucune récompense n'est versée.
-- Pas de commission de la plateforme.
-- Les fichiers de preuve sont stockés sur le disque du serveur.
+- Notifications are in-app only (no emails).
+- Referrals are a counter: no reward is paid.
+- No platform fee.
+- Wallet history only includes operations made after the history feature was added.
 
 ## Tests
 
-`bun run test:server` lance les tests de l'API (comptes, anti-triche, preuves, modération, administration) et vérifie que chaque écran reçoit tous les champs qu'il attend. Le serveur doit tourner (`bun run server`).
+`bun run test:server` runs the API tests (accounts, anti-cheating rules, proof files, moderation, administration) and checks that every screen receives all the fields it expects. It needs the server running (`bun run server`).
 
-Le parcours complet avec de vraies transactions sur Arc Testnet (dépôt, tâche, soumission, paiement, retrait, concours) s'active avec `E2E_KEYS=/chemin/cles.json bun run test:server`, où le fichier contient deux clés de portefeuilles jetables `{"creator": "0x…", "worker": "0x…"}`, la première financée en USDC de test. N'utilisez jamais une clé qui détient de la valeur réelle.
+The full flow with real transactions on Arc Testnet (deposit, task, submission, payment, withdrawal, contest) runs with `E2E_KEYS=/path/keys.json bun run test:server`, where the file holds two throwaway wallet keys `{"creator": "0x…", "worker": "0x…"}`, the first one funded with test USDC. Never use a key that holds real value.
 
-## Mise en ligne
+## Deployment
 
-Deux services gratuits suffisent :
+Two free services are enough:
 
-1. **Base de données (Neon).** Une base Postgres. Le serveur crée ses tables au démarrage.
-2. **Site et serveur (Render).** Un seul service, décrit par `render.yaml` et construit avec le `Dockerfile` : il sert le site (dossier `web`) et l'API (`/api/*`) à la même adresse, donc la session par cookie reste sur le même site.
+1. **Database (Neon).** A Postgres database. The server creates its tables on startup.
+2. **Site and server (Render).** A single service, described by `render.yaml` and built from the `Dockerfile`: it serves the app (the `web` folder) and the API (`/api/*`) at the same address, so the session cookie stays on the same site.
 
-Avant d'envoyer une modification de l'interface sur GitHub, reconstruisez le site avec `bunx vite build --outDir web --emptyOutDir` : le dossier `web` fait partie du dépôt et Render le copie tel quel.
+Before pushing an interface change to GitHub, rebuild the app with `bunx vite build --outDir web --emptyOutDir`: the `web` folder is part of the repository and Render copies it as is.
 
-Variable optionnelle `RPC_URL_Arc_Testnet` : adresse d'un fournisseur RPC pour les vérifications du serveur. Sans elle, le RPC public d'Arc est utilisé. Ne la mettez jamais dans une variable `VITE_`.
+Render service variables: `DATABASE_URL` (Neon address), `ADMIN_WALLETS` or `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (already in `render.yaml`).
 
-Variables du service Render : `DATABASE_URL` (adresse Neon), `ADMIN_WALLETS` ou `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (déjà dans `render.yaml`).
-
-Sur l'offre gratuite, Render met le service en veille après un moment d'inactivité : la première requête suivante est plus lente.
+On the free plan, Render puts the service to sleep after a while without traffic: the next request is slower.

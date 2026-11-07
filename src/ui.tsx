@@ -84,13 +84,13 @@ export function ErrorBox({ message }: { message: string }) {
 }
 
 const PILLS: Record<string, { label: string; color: string; bg: string }> = {
-  pending:   { label: 'En attente', color: '#a0700a', bg: 'rgba(255,205,131,0.25)' },
-  approved:  { label: 'Approuvée', color: 'var(--success)', bg: 'rgba(26,128,71,0.10)' },
-  rejected:  { label: 'Refusée', color: 'var(--danger)', bg: 'rgba(186,43,76,0.09)' },
-  winner:    { label: 'Gagnant', color: 'var(--success)', bg: 'rgba(26,128,71,0.10)' },
-  open:      { label: 'Ouverte', color: 'var(--accent)', bg: 'rgba(26,47,110,0.08)' },
-  closed:    { label: 'Fermée', color: 'var(--muted)', bg: 'rgba(15,28,53,0.07)' },
-  removed:   { label: 'Retirée', color: 'var(--danger)', bg: 'rgba(186,43,76,0.09)' },
+  pending:   { label: 'Pending', color: '#a0700a', bg: 'rgba(255,205,131,0.25)' },
+  approved:  { label: 'Approved', color: 'var(--success)', bg: 'rgba(26,128,71,0.10)' },
+  rejected:  { label: 'Rejected', color: 'var(--danger)', bg: 'rgba(186,43,76,0.09)' },
+  winner:    { label: 'Winner', color: 'var(--success)', bg: 'rgba(26,128,71,0.10)' },
+  open:      { label: 'Open', color: 'var(--accent)', bg: 'rgba(26,47,110,0.08)' },
+  closed:    { label: 'Closed', color: 'var(--muted)', bg: 'rgba(15,28,53,0.07)' },
+  removed:   { label: 'Removed', color: 'var(--danger)', bg: 'rgba(186,43,76,0.09)' },
 }
 
 export function Pill({ status }: { status: string }) {
@@ -98,7 +98,7 @@ export function Pill({ status }: { status: string }) {
   return <span className="text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap" style={{ background: p.bg, color: p.color }}>{p.label}</span>
 }
 
-export function TxLink({ hash, label = 'Voir la transaction' }: { hash: string; label?: string }) {
+export function TxLink({ hash, label = 'View transaction' }: { hash: string; label?: string }) {
   return (
     <a href={buildTxExplorerUrl(ARC_ID, hash)} target="_blank" rel="noopener noreferrer"
       className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--accent)' }}>

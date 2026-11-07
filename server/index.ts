@@ -29,4 +29,4 @@ Bun.serve({
     return handle(req)
   },
 })
-console.log(`[server] ArcQuest sur le port ${port}${hasStatic ? ' (site + API)' : ' (API seule)'}`)
+console.log(`[server] ArcQuest on port ${port}${hasStatic ? ' (site + API)' : ' (API only)'}`)

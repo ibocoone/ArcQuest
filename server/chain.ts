@@ -13,7 +13,7 @@ function rpcUrl(): string {
     return `${base}/api/rpc/Arc_Testnet?_rpc_token=${process.env.RPC_PROXY_TOKEN ?? ''}`
   }
   const url = getChain(CHAIN_ID)?.rpcUrls[0]
-  if (!url) throw new Error('RPC Arc Testnet introuvable')
+  if (!url) throw new Error('Arc Testnet RPC not found')
   return url
 }
 
@@ -47,13 +47,13 @@ export function toRaw(amount: string): bigint {
 }
 
 async function vaultLogs(hash: Hex) {
-  if (!VAULT) throw new HttpError(503, 'Contrat non configuré.')
+  if (!VAULT) throw new HttpError(503, 'Contract not configured.')
   let receipt = null
   for (let i = 0; i < 8 && !receipt; i++) {
     try { receipt = await client.getTransactionReceipt({ hash }) } catch { await Bun.sleep(1500) }
   }
-  if (!receipt) throw new HttpError(400, 'Transaction introuvable sur Arc Testnet.')
-  if (receipt.status !== 'success') throw new HttpError(400, 'La transaction a échoué onchain.')
+  if (!receipt) throw new HttpError(400, 'Transaction not found on Arc Testnet.')
+  if (receipt.status !== 'success') throw new HttpError(400, 'The transaction failed onchain.')
   return parseEventLogs({ abi: events, logs: receipt.logs.filter((l) => l.address.toLowerCase() === VAULT) })
 }
 
@@ -63,7 +63,7 @@ export async function verifyFunding(hash: Hex, appId: string, funder: string, mi
   const total = (await vaultLogs(hash))
     .filter((l) => l.eventName === 'TaskFunded' && l.args.taskId === id && l.args.funder.toLowerCase() === funder.toLowerCase())
     .reduce((s, l) => s + (l.eventName === 'TaskFunded' ? l.args.amount : 0n), 0n)
-  if (total < minRaw) throw new HttpError(400, 'Le financement onchain ne correspond pas (montant, tâche ou portefeuille).')
+  if (total < minRaw) throw new HttpError(400, 'The onchain funding does not match (amount, task or wallet).')
 }
 
 /** Vérifie que la transaction a bien payé exactement `amountRaw` à `worker` pour `appId`. */
@@ -72,20 +72,20 @@ export async function verifyRelease(hash: Hex, appId: string, worker: string, am
   const ok = (await vaultLogs(hash)).some((l) =>
     l.eventName === 'RewardReleased' && l.args.taskId === id
     && l.args.worker.toLowerCase() === worker.toLowerCase() && l.args.amount === amountRaw)
-  if (!ok) throw new HttpError(400, 'Le paiement onchain ne correspond pas (travailleur, montant ou tâche).')
+  if (!ok) throw new HttpError(400, 'The onchain payment does not match (worker, amount or task).')
 }
 
 export interface ActivityEntry { logIndex: number; kind: 'deposit' | 'withdraw' | 'fund' | 'reward' | 'refund'; amountRaw: bigint; at: Date }
 
 /** Opérations du contrat qui concernent `wallet` dans la transaction `hash` (lues sur la blockchain, jamais saisies par le client). */
 export async function activityFromTx(hash: Hex, wallet: string): Promise<ActivityEntry[]> {
-  if (!VAULT) throw new HttpError(503, 'Contrat non configuré.')
+  if (!VAULT) throw new HttpError(503, 'Contract not configured.')
   let receipt = null
   for (let i = 0; i < 8 && !receipt; i++) {
     try { receipt = await client.getTransactionReceipt({ hash }) } catch { await Bun.sleep(1500) }
   }
-  if (!receipt) throw new HttpError(400, 'Transaction introuvable sur Arc Testnet.')
-  if (receipt.status !== 'success') throw new HttpError(400, 'La transaction a échoué onchain.')
+  if (!receipt) throw new HttpError(400, 'Transaction not found on Arc Testnet.')
+  if (receipt.status !== 'success') throw new HttpError(400, 'The transaction failed onchain.')
   const w = wallet.toLowerCase()
   const out: Omit<ActivityEntry, 'at'>[] = []
   for (const l of parseEventLogs({ abi: events, logs: receipt.logs.filter((x) => x.address.toLowerCase() === VAULT) })) {

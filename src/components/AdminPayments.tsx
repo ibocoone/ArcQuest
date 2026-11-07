@@ -24,26 +24,26 @@ export default function AdminPayments() {
   const { data, isLoading, error } = useQuery({ queryKey: ['admin-payments'], queryFn: () => api<{ items: Payment[] }>('/admin/payments') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Aucun paiement confirmé" sub="Les paiements apparaissent ici dès qu'un créateur approuve une soumission." /></Card>
+  if (!data?.items.length) return <Card><Empty title="No confirmed payments" sub="Payments appear here as soon as a creator approves a submission." /></Card>
 
-  const exportCsv = () => downloadCsv('paiements.csv', ['Date', 'Type', 'Titre', 'Payeur', 'Bénéficiaire', 'Montant USDC', 'Transaction'],
-    data.items.map((p) => [p.at, p.kind === 'task' ? 'Tâche' : 'Concours', p.title, p.creator, p.worker, p.amount, p.tx]))
+  const exportCsv = () => downloadCsv('payments.csv', ['Date', 'Type', 'Title', 'Payer', 'Recipient', 'Amount (USDC)', 'Transaction'],
+    data.items.map((p) => [p.at, p.kind === 'task' ? 'Task' : 'Contests', p.title, p.creator, p.worker, p.amount, p.tx]))
 
   return (
     <div className="space-y-3">
       <button onClick={exportCsv} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-2" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--ink)' }}>
-        <Download size={15} /> Exporter en CSV
+        <Download size={15} /> Export CSV
       </button>
       <Card className="divide-y">
         {data.items.map((p) => (
           <div key={p.tx} className="px-4 py-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-medium truncate" style={{ color: 'var(--ink)' }}>{p.title}</div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>@{p.creator} → @{p.worker} · {p.kind === 'task' ? 'Tâche' : 'Concours'}</div>
+              <div className="text-xs" style={{ color: 'var(--muted)' }}>@{p.creator} → @{p.worker} · {p.kind === 'task' ? 'Task' : 'Contests'}</div>
               <div className="text-xs" style={{ color: 'var(--subtle)' }}>{fmtDate(p.at)}</div>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="font-semibold tabular-nums text-sm" style={{ color: 'var(--ink)' }}>${usdc(p.amount)}</div>
+              <div className="font-semibold tabular-nums text-sm" style={{ color: 'var(--ink)' }}>{usdc(p.amount)}</div>
               <TxLink hash={p.tx} label="Transaction" />
             </div>
           </div>

@@ -18,17 +18,17 @@ export default function JobsPage({ initialTab }: { initialTab?: string }) {
 
   return (
     <div className="space-y-4">
-      <PageTitle title="Tâches" sub="Réalisez des tâches pour gagner du USDC, ou publiez les vôtres."
+      <PageTitle title="Tasks" sub="Complete tasks to earn USDC, or publish your own."
         action={!creating && (
           <button onClick={() => { setCreating(true); setTab('mine') }} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5 flex-shrink-0" style={primaryBtn()}>
-            <Plus size={16} /> Publier
+            <Plus size={16} /> Publish
           </button>
         )} />
       {creating && <TaskCreateForm onClose={() => setCreating(false)} />}
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
-        { id: 'offers', label: 'Offres' },
-        { id: 'submissions', label: 'Mes soumissions' },
-        { id: 'mine', label: 'Mes tâches', badge: stats.data?.toReview },
+        { id: 'offers', label: 'Offers' },
+        { id: 'submissions', label: 'My submissions' },
+        { id: 'mine', label: 'My tasks', badge: stats.data?.toReview },
       ]} />
       {tab === 'offers' && <TaskOffers />}
       {tab === 'submissions' && <MySubmissions />}

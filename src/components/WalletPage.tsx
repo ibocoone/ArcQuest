@@ -55,9 +55,9 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
   }
 
   const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: 'deposit', label: 'Dépôt', icon: PlusCircle },
-    { id: 'withdraw', label: 'Retrait', icon: MinusCircle },
-    { id: 'history', label: 'Historique', icon: History },
+    { id: 'deposit', label: 'Deposit', icon: PlusCircle },
+    { id: 'withdraw', label: 'Withdraw', icon: MinusCircle },
+    { id: 'history', label: 'History', icon: History },
   ]
 
   return (
@@ -68,7 +68,7 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
           <div>
             <div className="flex items-center gap-1.5 mb-1">
               <TokenUSDC variant="branded" size={14} />
-              <span className="text-xs font-semibold text-white opacity-60 uppercase tracking-wider">Solde wallet</span>
+              <span className="text-xs font-semibold text-white opacity-60 uppercase tracking-wider">Wallet balance</span>
             </div>
             <div className="display font-bold text-3xl tabular-nums text-white">{isConnected ? `$${walletBalance}` : '—'}</div>
             <div className="text-xs text-white opacity-40 mt-0.5">USDC · Arc Testnet</div>
@@ -76,10 +76,10 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
           <div className="border-l border-white/20 pl-4">
             <div className="flex items-center gap-1.5 mb-1">
               <ShieldCheck size={14} className="text-white opacity-60" />
-              <span className="text-xs font-semibold text-white opacity-60 uppercase tracking-wider">Solde ArcQuest</span>
+              <span className="text-xs font-semibold text-white opacity-60 uppercase tracking-wider">ArcQuest balance</span>
             </div>
             <div className="display font-bold text-3xl tabular-nums text-white">${vault.balance.toFixed(2)}</div>
-            <div className="text-xs text-white opacity-40 mt-0.5">Disponible pour les tâches</div>
+            <div className="text-xs text-white opacity-40 mt-0.5">Available for tasks</div>
           </div>
         </div>
         {isConnected && address ? (
@@ -91,11 +91,11 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
             </button>
             <button onClick={() => disconnect()} className="rounded-xl px-3 py-2 text-xs font-semibold min-h-[40px]"
               style={{ background: 'rgba(255,255,255,0.18)', color: 'white', border: '1px solid rgba(255,255,255,0.30)' }}>
-              Déconnecter
+              Disconnect
             </button>
           </div>
         ) : (
-          <div className="mt-4"><ConnectKitButton label="Connecter le portefeuille" /></div>
+          <div className="mt-4"><ConnectKitButton label="Connect wallet" /></div>
         )}
       </div>
 
@@ -114,13 +114,13 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
         {tab === 'withdraw' && <WalletWithdraw />}
         {tab === 'history' && (
           history.isLoading ? (
-            <div className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Lecture des événements du contrat…</div>
+            <div className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Loading contract activity…</div>
           ) : !isConnected ? (
-            <div className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Connectez votre portefeuille pour voir votre historique.</div>
+            <div className="text-center py-12 text-sm" style={{ color: 'var(--muted)' }}>Connect your wallet to see your history.</div>
           ) : events.length === 0 ? (
             <div className="text-center py-12" style={{ color: 'var(--muted)' }}>
               <Inbox size={28} className="mx-auto mb-2 opacity-25" />
-              <div className="text-sm font-medium">Aucune opération pour l'instant</div>
+              <div className="text-sm font-medium">No activity yet</div>
             </div>
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
@@ -134,7 +134,7 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate" style={{ color: 'var(--ink)' }}>{t.label}</div>
                       <div className="text-xs flex items-center gap-2" style={{ color: 'var(--subtle)' }}>
-                        {t.at && <span>{t.at.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</span>}
+                        {t.at && <span>{t.at.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>}
                         <TxLink hash={t.hash} label="Transaction" />
                       </div>
                     </div>

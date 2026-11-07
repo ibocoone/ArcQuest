@@ -69,14 +69,14 @@ route('POST', '/reports', 'user', async (c) => {
   const b = await c.json()
   rateLimit(`report:${me.id}`, 10, 3_600_000)
   const type = str(b.targetType, 4, 10, 'Type')
-  if (!['task', 'contest', 'user'].includes(type)) throw new HttpError(400, 'Type invalide.')
-  const target = uuid(b.targetId, 'Cible')
-  const reason = str(b.reason, 5, 500, 'Motif')
+  if (!['task', 'contest', 'user'].includes(type)) throw new HttpError(400, 'Invalid type.')
+  const target = uuid(b.targetId, 'Target')
+  const reason = str(b.reason, 5, 500, 'Reason')
   const exists = type === 'task' ? sql`SELECT 1 FROM tasks WHERE id = ${target}`
     : type === 'contest' ? sql`SELECT 1 FROM contests WHERE id = ${target}` : sql`SELECT 1 FROM users WHERE id = ${target}`
-  if (!(await one(exists))) throw new HttpError(404, 'Élément introuvable.')
+  if (!(await one(exists))) throw new HttpError(404, 'Item not found.')
   if (await one(sql`SELECT 1 FROM reports WHERE reporter_id = ${me.id} AND target_id = ${target} AND status = 'open'`)) {
-    throw new HttpError(409, 'Vous avez déjà signalé cet élément.')
+    throw new HttpError(409, 'You have already reported this item.')
   }
   await sql`INSERT INTO reports (reporter_id, target_type, target_id, reason) VALUES (${me.id}, ${type}, ${target}, ${reason})`
 })
@@ -86,7 +86,7 @@ route('POST', '/reports', 'user', async (c) => {
 route('POST', '/me/activity', 'user', async (c) => {
   const me = c.user as AuthUser
   rateLimit(`activity:${me.id}`, 200, 3_600_000)
-  if (!me.wallet_address) throw new HttpError(400, 'Aucun portefeuille lié.')
+  if (!me.wallet_address) throw new HttpError(400, 'No wallet linked.')
   const hash = txHash((await c.json()).txHash)
   const entries = await activityFromTx(hash, me.wallet_address)
   for (const e of entries) {

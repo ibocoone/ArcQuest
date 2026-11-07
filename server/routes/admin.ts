@@ -35,12 +35,12 @@ route('GET', '/admin/users', 'admin', async (c) => {
 
 route('POST', '/admin/users/:id/status', 'admin', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Utilisateur')
-  const status = str((await c.json()).status, 6, 9, 'Statut')
-  if (status !== 'active' && status !== 'suspended') throw new HttpError(400, 'Statut invalide.')
+  const id = uuid(c.params.id, 'User')
+  const status = str((await c.json()).status, 6, 9, 'Status')
+  if (status !== 'active' && status !== 'suspended') throw new HttpError(400, 'Invalid status.')
   const target = await one<{ role: string }>(sql`SELECT role FROM users WHERE id = ${id}`)
-  if (!target) throw new HttpError(404, 'Utilisateur introuvable.')
-  if (target.role === 'admin' || id === me.id) throw new HttpError(400, 'Impossible de modifier un administrateur.')
+  if (!target) throw new HttpError(404, 'User not found.')
+  if (target.role === 'admin' || id === me.id) throw new HttpError(400, 'Administrators cannot be modified.')
   await sql`UPDATE users SET status = ${status} WHERE id = ${id}`
   if (status === 'suspended') await sql`DELETE FROM sessions WHERE user_id = ${id}`
   await audit(me.id, `user.${status}`, id)
@@ -58,26 +58,26 @@ route('GET', '/admin/reports', 'admin', async (c) => {
 
 route('POST', '/admin/reports/:id/resolve', 'admin', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Signalement')
+  const id = uuid(c.params.id, 'Report')
   const action = str((await c.json()).action, 6, 7, 'Action')
   const rep = await one<{ target_type: string; target_id: string; status: string }>(sql`SELECT target_type, target_id, status FROM reports WHERE id = ${id}`)
-  if (!rep || rep.status !== 'open') throw new HttpError(404, 'Signalement introuvable ou déjà traité.')
+  if (!rep || rep.status !== 'open') throw new HttpError(404, 'Report not found or already handled.')
 
   if (action === 'remove' && rep.target_type === 'task') {
     const t = await one<{ creator_id: string; title: string }>(sql`UPDATE tasks SET status = 'removed' WHERE id = ${rep.target_id} RETURNING creator_id, title`)
-    if (t) await notify(t.creator_id, 'moderation', 'Tâche retirée', `« ${t.title} » a été retirée par la modération.`)
+    if (t) await notify(t.creator_id, 'moderation', 'Task removed', `"${t.title}" was removed by moderation.`)
   } else if (action === 'remove' && rep.target_type === 'contest') {
     const k = await one<{ creator_id: string; title: string }>(sql`UPDATE contests SET status = 'removed' WHERE id = ${rep.target_id} RETURNING creator_id, title`)
-    if (k) await notify(k.creator_id, 'moderation', 'Concours retiré', `« ${k.title} » a été retiré par la modération.`)
+    if (k) await notify(k.creator_id, 'moderation', 'Contest removed', `"${k.title}" was removed by moderation.`)
   } else if (action === 'suspend') {
     const uid = rep.target_type === 'user' ? rep.target_id
       : (await one<{ creator_id: string }>(rep.target_type === 'task' ? sql`SELECT creator_id FROM tasks WHERE id = ${rep.target_id}` : sql`SELECT creator_id FROM contests WHERE id = ${rep.target_id}`))?.creator_id
     const target = uid ? await one<{ role: string }>(sql`SELECT role FROM users WHERE id = ${uid}`) : null
-    if (!uid || !target || target.role === 'admin') throw new HttpError(400, 'Suspension impossible.')
+    if (!uid || !target || target.role === 'admin') throw new HttpError(400, 'Cannot suspend.')
     await sql`UPDATE users SET status = 'suspended' WHERE id = ${uid}`
     await sql`DELETE FROM sessions WHERE user_id = ${uid}`
   } else if (action !== 'dismiss') {
-    throw new HttpError(400, 'Action invalide.')
+    throw new HttpError(400, 'Invalid action.')
   }
   await sql`UPDATE reports SET status = ${action === 'dismiss' ? 'dismissed' : 'resolved'}, resolved_by = ${me.id}, resolved_at = now() WHERE id = ${id}`
   await audit(me.id, `report.${action}`, id, { target: rep.target_id })

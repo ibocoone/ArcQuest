@@ -42,28 +42,28 @@ route('POST', '/contests', 'user', async (c) => {
   const me = c.user as AuthUser
   const b = await c.json()
   rateLimit(`contest:${me.id}`, 10, 3_600_000)
-  const id = uuid(b.id, 'Identifiant')
+  const id = uuid(b.id, 'ID')
   const type = str(b.type, 2, 20, 'Type')
-  if (!TYPES.includes(type)) throw new HttpError(400, 'Type invalide.')
-  const endsAt = new Date(str(b.endsAt, 10, 40, 'Date de fin'))
+  if (!TYPES.includes(type)) throw new HttpError(400, 'Invalid type.')
+  const endsAt = new Date(str(b.endsAt, 10, 40, 'End date'))
   if (!(endsAt.getTime() > Date.now() + 3_600_000) || endsAt.getTime() > Date.now() + 330 * 86_400_000) {
-    throw new HttpError(400, 'La date de fin doit être dans plus d\'une heure et moins de 11 mois.')
+    throw new HttpError(400, 'The end date must be more than one hour and less than 11 months away.')
   }
   const slots = Number(b.slots)
-  if (!Number.isInteger(slots) || slots < 1 || slots > 100_000) throw new HttpError(400, 'Nombre de places invalide.')
-  if (!Array.isArray(b.prizes) || b.prizes.length < 1 || b.prizes.length > 10) throw new HttpError(400, 'Ajoutez entre 1 et 10 prix.')
-  const prizes: Prize[] = (b.prizes as Record<string, unknown>[]).map((p) => ({ place: str(p.place, 1, 20, 'Rang'), amount: amount(p.amount, 'Montant du prix') }))
-  if (new Set(prizes.map((p) => p.place)).size !== prizes.length) throw new HttpError(400, 'Deux prix ont le même rang.')
+  if (!Number.isInteger(slots) || slots < 1 || slots > 100_000) throw new HttpError(400, 'Invalid number of places.')
+  if (!Array.isArray(b.prizes) || b.prizes.length < 1 || b.prizes.length > 10) throw new HttpError(400, 'Add between 1 and 10 prizes.')
+  const prizes: Prize[] = (b.prizes as Record<string, unknown>[]).map((p) => ({ place: str(p.place, 1, 20, 'Rank'), amount: amount(p.amount, 'Prize amount') }))
+  if (new Set(prizes.map((p) => p.place)).size !== prizes.length) throw new HttpError(400, 'Two prizes have the same rank.')
   const poolRaw = prizes.reduce((s, p) => s + toRaw(p.amount), 0n)
-  if (!me.wallet_address) throw new HttpError(400, 'Liez un portefeuille à votre compte pour créer un concours.')
+  if (!me.wallet_address) throw new HttpError(400, 'Link a wallet to your account to create a contest.')
   const hash = txHash(b.fundTx)
   await verifyFunding(hash, id, me.wallet_address, poolRaw)
   try {
     await sql`INSERT INTO contests (id, creator_id, title, description, prompt, type, ends_at, slots, prizes, prize_pool, fund_tx)
-      VALUES (${id}, ${me.id}, ${str(b.title, 3, 120, 'Titre')}, ${str(b.description, 10, 1000, 'Description')}, ${str(b.prompt, 10, 2000, 'Instructions')},
+      VALUES (${id}, ${me.id}, ${str(b.title, 3, 120, 'Title')}, ${str(b.description, 10, 1000, 'Description')}, ${str(b.prompt, 10, 2000, 'Instructions')},
               ${type}, ${endsAt.toISOString()}, ${slots}, ${JSON.stringify(prizes)}::jsonb, ${formatUnits(poolRaw, 6)}, ${hash})`
   } catch (e) {
-    if (isDup(e)) throw new HttpError(409, 'Ce concours ou cette transaction est déjà enregistré.')
+    if (isDup(e)) throw new HttpError(409, 'This contest or transaction is already registered.')
     throw e
   }
   return { id }
@@ -71,36 +71,36 @@ route('POST', '/contests', 'user', async (c) => {
 
 route('POST', '/contests/:id/close', 'user', async (c) => {
   const me = c.user as AuthUser
-  const r = await one(sql`UPDATE contests SET status = 'closed' WHERE id = ${uuid(c.params.id, 'Concours')} AND (creator_id = ${me.id} OR ${me.role === 'admin'}) AND status = 'open' RETURNING id`)
-  if (!r) throw new HttpError(404, 'Concours introuvable ou déjà fermé.')
+  const r = await one(sql`UPDATE contests SET status = 'closed' WHERE id = ${uuid(c.params.id, 'Contest')} AND (creator_id = ${me.id} OR ${me.role === 'admin'}) AND status = 'open' RETURNING id`)
+  if (!r) throw new HttpError(404, 'Contest not found or already closed.')
   return { ok: true }
 })
 
 route('POST', '/contests/:id/entries', 'user', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Concours')
+  const id = uuid(c.params.id, 'Contest')
   const b = await c.json()
   rateLimit(`entry:${me.id}`, 60, 3_600_000)
-  if (!me.wallet_address) throw new HttpError(400, 'Liez un portefeuille à votre compte pour recevoir un prix.')
-  const proofUrl = httpUrl(b.proofUrl, 'Lien')
+  if (!me.wallet_address) throw new HttpError(400, 'Link a wallet to your account to receive a prize.')
+  const proofUrl = httpUrl(b.proofUrl, 'Link')
   const note = optStr(b.note, 1000, 'Note')
-  const proofFile = b.proofFile ? uuid(b.proofFile, 'Fichier') : null
-  if (!proofUrl && !proofFile && !note) throw new HttpError(400, 'Ajoutez votre participation : lien, image ou texte.')
-  if (proofFile && !(await one(sql`SELECT 1 FROM uploads WHERE id = ${proofFile} AND user_id = ${me.id}`))) throw new HttpError(400, 'Fichier introuvable.')
+  const proofFile = b.proofFile ? uuid(b.proofFile, 'File') : null
+  if (!proofUrl && !proofFile && !note) throw new HttpError(400, 'Add your entry: a link, an image or text.')
+  if (proofFile && !(await one(sql`SELECT 1 FROM uploads WHERE id = ${proofFile} AND user_id = ${me.id}`))) throw new HttpError(400, 'File not found.')
   try {
     const k = await sql.begin(async (tx) => {
       const [k] = (await tx`SELECT creator_id, slots, ends_at, status, title FROM contests WHERE id = ${id} FOR UPDATE`) as
         { creator_id: string; slots: number; ends_at: Date; status: string; title: string }[]
-      if (!k || k.status !== 'open' || new Date(k.ends_at).getTime() <= Date.now()) throw new HttpError(404, 'Ce concours est terminé.')
-      if (k.creator_id === me.id) throw new HttpError(400, 'Vous ne pouvez pas participer à votre propre concours.')
+      if (!k || k.status !== 'open' || new Date(k.ends_at).getTime() <= Date.now()) throw new HttpError(404, 'This contest has ended.')
+      if (k.creator_id === me.id) throw new HttpError(400, 'You cannot enter your own contest.')
       const [n] = (await tx`SELECT count(*)::int AS n FROM contest_entries WHERE contest_id = ${id} AND status <> 'rejected'`) as { n: number }[]
-      if ((n?.n ?? 0) >= k.slots) throw new HttpError(409, 'Toutes les places sont prises.')
+      if ((n?.n ?? 0) >= k.slots) throw new HttpError(409, 'All places are taken.')
       await tx`INSERT INTO contest_entries (contest_id, user_id, proof_url, proof_file, note) VALUES (${id}, ${me.id}, ${proofUrl}, ${proofFile}, ${note})`
       return k
     })
-    await notify(k.creator_id, 'entry', 'Nouvelle participation', `@${me.username} participe à « ${k.title} ».`, 'contests:mine')
+    await notify(k.creator_id, 'entry', 'New entry', `@${me.username} entered "${k.title}".`, 'contests:mine')
   } catch (e) {
-    if (isDup(e)) throw new HttpError(409, 'Vous participez déjà à ce concours.')
+    if (isDup(e)) throw new HttpError(409, 'You have already entered this contest.')
     throw e
   }
   return { ok: true }
@@ -120,9 +120,9 @@ route('GET', '/me/entries', 'user', async (c) => {
 
 route('GET', '/contests/:id/entries', 'user', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Concours')
+  const id = uuid(c.params.id, 'Contest')
   const k = await one<{ creator_id: string }>(sql`SELECT creator_id FROM contests WHERE id = ${id}`)
-  if (!k || (k.creator_id !== me.id && me.role !== 'admin')) throw new HttpError(403, 'Accès refusé.')
+  if (!k || (k.creator_id !== me.id && me.role !== 'admin')) throw new HttpError(403, 'Access denied.')
   const list = await rows<Record<string, unknown>>(sql`
     SELECT e.id, e.status, e.proof_url, e.proof_file, e.note, e.prize_place, e.prize_amount, e.pay_tx, e.created_at, u.username, u.wallet_address
     FROM contest_entries e JOIN users u ON u.id = e.user_id WHERE e.contest_id = ${id} ORDER BY e.created_at ASC`)
@@ -132,29 +132,29 @@ route('GET', '/contests/:id/entries', 'user', async (c) => {
 async function ownedEntry(c: { user: AuthUser | null; params: Record<string, string> }) {
   const e = await one<{ id: string; status: string; contest_id: string; user_id: string; creator_id: string; prizes: Prize[]; title: string; wallet: string | null }>(sql`
     SELECT e.id, e.status, e.contest_id, e.user_id, k.creator_id, k.prizes, k.title, u.wallet_address AS wallet
-    FROM contest_entries e JOIN contests k ON k.id = e.contest_id JOIN users u ON u.id = e.user_id WHERE e.id = ${uuid(c.params.id, 'Participation')}`)
-  if (!e || e.creator_id !== (c.user as AuthUser).id) throw new HttpError(403, 'Accès refusé.')
-  if (e.status !== 'pending') throw new HttpError(409, 'Cette participation a déjà été traitée.')
+    FROM contest_entries e JOIN contests k ON k.id = e.contest_id JOIN users u ON u.id = e.user_id WHERE e.id = ${uuid(c.params.id, 'Entry')}`)
+  if (!e || e.creator_id !== (c.user as AuthUser).id) throw new HttpError(403, 'Access denied.')
+  if (e.status !== 'pending') throw new HttpError(409, 'This entry has already been handled.')
   return e
 }
 
 route('POST', '/entries/:id/award', 'user', async (c) => {
   const e = await ownedEntry(c)
   const b = await c.json()
-  const place = str(b.prizePlace, 1, 20, 'Rang')
+  const place = str(b.prizePlace, 1, 20, 'Rank')
   const prize = prizesOf(e.prizes).find((p) => p.place === place)
-  if (!prize) throw new HttpError(400, 'Ce rang n\'existe pas dans le concours.')
-  if (await one(sql`SELECT 1 FROM contest_entries WHERE contest_id = ${e.contest_id} AND prize_place = ${place}`)) throw new HttpError(409, 'Ce prix est déjà attribué.')
-  if (!e.wallet) throw new HttpError(400, 'Le participant n\'a pas de portefeuille lié.')
+  if (!prize) throw new HttpError(400, 'This rank does not exist in the contest.')
+  if (await one(sql`SELECT 1 FROM contest_entries WHERE contest_id = ${e.contest_id} AND prize_place = ${place}`)) throw new HttpError(409, 'This prize has already been awarded.')
+  if (!e.wallet) throw new HttpError(400, 'The participant has no linked wallet.')
   const hash = txHash(b.txHash)
   await verifyRelease(hash, e.contest_id, e.wallet, toRaw(prize.amount))
   try {
     await sql`UPDATE contest_entries SET status = 'winner', prize_place = ${place}, prize_amount = ${prize.amount}, pay_tx = ${hash} WHERE id = ${e.id} AND status = 'pending'`
   } catch (err) {
-    if (isDup(err)) throw new HttpError(409, 'Prix ou transaction déjà enregistré.')
+    if (isDup(err)) throw new HttpError(409, 'Prize or transaction already recorded.')
     throw err
   }
-  await notify(e.user_id, 'paid', 'Vous avez gagné !', `${prize.amount} USDC (${place}) pour « ${e.title} » ont été ajoutés à votre solde.`, 'wallet')
+  await notify(e.user_id, 'paid', 'You won!', `${prize.amount} USDC (${place}) for "${e.title}" were added to your balance.`, 'wallet')
   await audit((c.user as AuthUser).id, 'entry.award', e.id, { place, hash })
   return { ok: true }
 })
@@ -162,6 +162,6 @@ route('POST', '/entries/:id/award', 'user', async (c) => {
 route('POST', '/entries/:id/reject', 'user', async (c) => {
   const e = await ownedEntry(c)
   await sql`UPDATE contest_entries SET status = 'rejected' WHERE id = ${e.id} AND status = 'pending'`
-  await notify(e.user_id, 'rejected', 'Participation non retenue', `« ${e.title} »`, 'contests')
+  await notify(e.user_id, 'rejected', 'Entry not selected', `"${e.title}"`, 'contests')
   return { ok: true }
 })

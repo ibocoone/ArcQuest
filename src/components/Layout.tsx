@@ -8,13 +8,13 @@ import NotificationsBell from './NotificationsBell'
 export type Page = 'dashboard' | 'jobs' | 'wallet' | 'earnings' | 'referrals' | 'contests' | 'settings' | 'admin'
 
 const NAV: { id: Page; label: string; icon: React.ElementType }[] = [
-  { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'jobs', label: 'Tâches', icon: Briefcase },
-  { id: 'contests', label: 'Concours', icon: Trophy },
-  { id: 'wallet', label: 'Portefeuille', icon: Wallet },
-  { id: 'earnings', label: 'Gains', icon: TrendingUp },
-  { id: 'referrals', label: 'Parrainages', icon: Users },
-  { id: 'settings', label: 'Paramètres', icon: Settings },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'jobs', label: 'Tasks', icon: Briefcase },
+  { id: 'contests', label: 'Contests', icon: Trophy },
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
+  { id: 'earnings', label: 'Earnings', icon: TrendingUp },
+  { id: 'referrals', label: 'Referrals', icon: Users },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export default function Layout({ currentPage, onNavigate, onOpenLegal, children }: {
@@ -44,7 +44,7 @@ export default function Layout({ currentPage, onNavigate, onOpenLegal, children 
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: '#1a2f6e' }}>{user.avatar}</div>
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate" style={{ color: '#0f1c35' }}>{user.fullName}</div>
-              <div className="text-xs truncate" style={{ color: '#6b6580' }}>{user.email ?? 'Compte portefeuille'}</div>
+              <div className="text-xs truncate" style={{ color: '#6b6580' }}>{user.email ?? 'Wallet account'}</div>
             </div>
           </div>
         </div>
@@ -64,11 +64,11 @@ export default function Layout({ currentPage, onNavigate, onOpenLegal, children 
 
       <div className="p-3 space-y-2">
         <div className="flex gap-3 px-1 text-xs" style={{ color: '#8a849c' }}>
-          <button onClick={() => onOpenLegal('terms')} className="underline">Conditions</button>
-          <button onClick={() => onOpenLegal('privacy')} className="underline">Confidentialité</button>
+          <button onClick={() => onOpenLegal('terms')} className="underline">Terms</button>
+          <button onClick={() => onOpenLegal('privacy')} className="underline">Privacy</button>
         </div>
         <button onClick={() => void logout()} className="w-full min-h-[44px] flex items-center gap-3 px-3 rounded-xl text-sm font-medium" style={{ color: '#ba2b4c', background: 'rgba(186,43,76,0.06)' }}>
-          <LogOut size={17} /> Se déconnecter
+          <LogOut size={17} /> Sign out
         </button>
       </div>
     </div>
@@ -84,7 +84,7 @@ export default function Layout({ currentPage, onNavigate, onOpenLegal, children 
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
           <aside className="relative w-72 flex flex-col h-full z-10" style={{ background: 'rgba(255,255,255,0.97)' }}>
-            <button onClick={() => setMobileOpen(false)} aria-label="Fermer" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-lg" style={{ color: '#6b6580' }}><X size={20} /></button>
+            <button onClick={() => setMobileOpen(false)} aria-label="Close" className="absolute top-3 right-3 w-11 h-11 flex items-center justify-center rounded-lg" style={{ color: '#6b6580' }}><X size={20} /></button>
             {sidebar}
           </aside>
         </div>

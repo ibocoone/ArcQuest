@@ -41,7 +41,7 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
         body: isRegister ? { email, password, referralCode: referral || undefined } : { email, password },
       })
       await refresh()
-    } catch (err) { fail(err, 'Une erreur est survenue.') } finally { setBusy(false) }
+    } catch (err) { fail(err, 'Something went wrong.') } finally { setBusy(false) }
   }
 
   const submitWallet = async () => {
@@ -55,7 +55,7 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
       await refresh()
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
-      toast.error(/rejected|denied/i.test(msg) ? 'Signature annulée.' : msg || 'La connexion par portefeuille a échoué.')
+      toast.error(/rejected|denied/i.test(msg) ? 'Signature cancelled.' : msg || 'Wallet sign-in failed.')
     } finally { setBusy(false) }
   }
 
@@ -69,7 +69,7 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
 
   const referralField = (
     <div>
-      <label className={labelCls} style={{ color: '#6b6580' }}>Code de parrainage <span style={{ fontWeight: 400 }}>(optionnel)</span></label>
+      <label className={labelCls} style={{ color: '#6b6580' }}>Referral code <span style={{ fontWeight: 400 }}>(optional)</span></label>
       <input style={inputStyle} placeholder="CODE123" value={referral} onChange={(e) => setReferral(e.target.value.toUpperCase())} />
     </div>
   )
@@ -85,30 +85,30 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
           </div>
           <h1 className="display text-2xl font-bold" style={{ color: '#0f1c35' }}>ArcQuest</h1>
           <p className="text-sm mt-1" style={{ color: '#6b6580' }}>
-            {method === 'wallet' ? 'Connexion avec votre portefeuille' : isRegister ? 'Créez votre compte' : 'Connectez-vous à votre compte'}
+            {method === 'wallet' ? 'Sign in with your wallet' : isRegister ? 'Create your account' : 'Sign in to your account'}
           </p>
         </div>
 
         <div className="rounded-2xl p-6 space-y-4 shadow-xl" style={{ background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.70)' }}>
           <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(15,28,53,0.06)' }}>
-            {tabBtn('email', 'E-mail', Mail)}
-            {tabBtn('wallet', 'Portefeuille', Wallet)}
+            {tabBtn('email', 'Email', Mail)}
+            {tabBtn('wallet', 'Wallet', Wallet)}
           </div>
 
           {method === 'email' ? (
             <form onSubmit={(e) => void submitEmail(e)} className="space-y-4">
               <div>
-                <label className={labelCls} style={{ color: '#6b6580' }}>Adresse e-mail</label>
-                <input style={inputStyle} type="email" placeholder="nom@exemple.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <label className={labelCls} style={{ color: '#6b6580' }}>Email address</label>
+                <input style={inputStyle} type="email" placeholder="you@example.com" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
-                <label className={labelCls} style={{ color: '#6b6580' }}>Mot de passe</label>
+                <label className={labelCls} style={{ color: '#6b6580' }}>Password</label>
                 <div className="relative">
                   <input style={{ ...inputStyle, paddingRight: 44 }} type={showPwd ? 'text' : 'password'}
-                    placeholder={isRegister ? '8 caractères minimum' : '••••••••'} autoComplete={isRegister ? 'new-password' : 'current-password'}
+                    placeholder={isRegister ? 'At least 8 characters' : '••••••••'} autoComplete={isRegister ? 'new-password' : 'current-password'}
                     value={password} onChange={(e) => setPassword(e.target.value)} required minLength={isRegister ? 8 : undefined} />
                   <button type="button" onClick={() => setShowPwd((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: '#8a849c' }}
-                    aria-label={showPwd ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                    aria-label={showPwd ? 'Hide password' : 'Show password'}>
                     {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -116,25 +116,25 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
               {isRegister && referralField}
               <button type="submit" disabled={busy} className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-xl font-semibold text-sm text-white active:scale-[0.98]" style={cta(busy)}>
                 {isRegister ? <UserPlus size={16} /> : <LogIn size={16} />}
-                {busy ? 'Patientez…' : isRegister ? 'Créer mon compte' : 'Se connecter'}
+                {busy ? 'Please wait…' : isRegister ? 'Create my account' : 'Sign in'}
               </button>
               <button type="button" onClick={() => setMode(isRegister ? 'login' : 'register')} className="w-full min-h-[44px] text-sm font-medium" style={{ color: '#1a2f6e' }}>
-                {isRegister ? 'Déjà un compte ? Se connecter' : 'Nouveau sur ArcQuest ? Créer un compte'}
+                {isRegister ? 'Already have an account? Sign in' : 'New to ArcQuest? Create an account'}
               </button>
             </form>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-pretty" style={{ color: '#6b6580' }}>
-                Connectez votre portefeuille et signez un message pour prouver que vous en êtes le propriétaire. Aucune transaction ni frais. Un compte est créé à la première connexion.
+                Connect your wallet and sign a message to prove you own it. No transaction and no fees. An account is created the first time you sign in.
               </p>
               {!isConnected ? (
-                <div className="flex justify-center"><ConnectKitButton label="Connecter le portefeuille" /></div>
+                <div className="flex justify-center"><ConnectKitButton label="Connect wallet" /></div>
               ) : (
                 <>
                   <div className="mono text-xs rounded-xl px-3 py-2.5 truncate" style={{ background: 'rgba(26,47,110,0.05)', color: '#0f1c35' }}>{address}</div>
                   {referralField}
                   <button onClick={() => void submitWallet()} disabled={busy} className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-xl font-semibold text-sm text-white active:scale-[0.98]" style={cta(busy)}>
-                    <Wallet size={16} /> {busy ? 'Signature en cours…' : 'Signer et continuer'}
+                    <Wallet size={16} /> {busy ? 'Signing…' : 'Sign and continue'}
                   </button>
                 </>
               )}
@@ -142,15 +142,15 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
           )}
 
           <p className="text-xs text-center text-pretty" style={{ color: '#8a849c' }}>
-            En continuant, vous acceptez les{' '}
-            <button type="button" className="underline" onClick={() => onOpenLegal('terms')}>conditions d'utilisation</button> et la{' '}
-            <button type="button" className="underline" onClick={() => onOpenLegal('privacy')}>politique de confidentialité</button>.
+            By continuing, you accept the{' '}
+            <button type="button" className="underline" onClick={() => onOpenLegal('terms')}>terms of use</button> and the{' '}
+            <button type="button" className="underline" onClick={() => onOpenLegal('privacy')}>privacy policy</button>.
           </p>
         </div>
 
         <div className="flex items-center justify-center gap-1.5 mt-6">
           <TokenUSDC variant="branded" size={14} />
-          <span className="text-xs" style={{ color: '#8a849c' }}>Paiements en USDC sur Arc</span>
+          <span className="text-xs" style={{ color: '#8a849c' }}>Payments in USDC on Arc</span>
         </div>
       </div>
     </div>

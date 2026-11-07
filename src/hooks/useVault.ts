@@ -39,14 +39,14 @@ export function useVaultActions() {
   const usdc = getUsdc(ARC_TESTNET_ID)
 
   const ready = () => {
-    if (!VAULT_ADDRESS || !usdc || !address || !publicClient) throw new Error('Coffre indisponible')
+    if (!VAULT_ADDRESS || !usdc || !address || !publicClient) throw new Error('Vault unavailable')
     return { vault: VAULT_ADDRESS, token: usdc.address as `0x${string}`, owner: address, client: publicClient }
   }
 
   const confirm = async (hash: `0x${string}`) => {
     const { client } = ready()
     const receipt = await client.waitForTransactionReceipt({ hash })
-    if (receipt.status !== 'success') throw new Error('Transaction échouée onchain')
+    if (receipt.status !== 'success') throw new Error('Transaction failed onchain')
     // Le serveur relit la transaction sur la blockchain et l'ajoute à l'historique ; sans effet sur l'opération
     void api('/me/activity', { body: { txHash: hash } })
       .then(() => qc.invalidateQueries({ queryKey: ['activity'] }))
@@ -101,7 +101,7 @@ export function useVaultActions() {
   return { deposit, withdraw, fundTask, releaseReward, refundTask }
 }
 
-/** Réserve restante et date de déverrouillage d'une tâche/concours, lues dans le contrat. */
+/** Remaining reserve et date de déverrouillage d'une tâche/concours, lues dans le contrat. */
 export function useEscrow(appId: string) {
   const { data, refetch } = useReadContract({
     address: VAULT_ADDRESS,
@@ -138,9 +138,9 @@ export function useWalletMatch(linked: string | null | undefined) {
 /** Indique si l'utilisateur peut signer une transaction pour son compte (portefeuille lié et connecté). */
 export function useTxGate(linked: string | null | undefined): { ok: boolean; message: string | null } {
   const { isConnected, linked: hasLinked, matches } = useWalletMatch(linked)
-  if (!VAULT_ADDRESS) return { ok: false, message: 'Le contrat n\'est pas configuré.' }
-  if (!hasLinked) return { ok: false, message: 'Liez un portefeuille à votre compte dans Paramètres.' }
-  if (!isConnected) return { ok: false, message: 'Connectez votre portefeuille.' }
-  if (!matches) return { ok: false, message: `Connectez le portefeuille lié à votre compte (${linked?.slice(0, 6)}…${linked?.slice(-4)}).` }
+  if (!VAULT_ADDRESS) return { ok: false, message: 'The contract is not configured.' }
+  if (!hasLinked) return { ok: false, message: 'Link a wallet to your account in Settings.' }
+  if (!isConnected) return { ok: false, message: 'Connect your wallet.' }
+  if (!matches) return { ok: false, message: `Connect the wallet linked to your account (${linked?.slice(0, 6)}…${linked?.slice(-4)}).` }
   return { ok: true, message: null }
 }

@@ -26,7 +26,7 @@ function AppShell() {
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center"><Loading /></div>
   if (!user) return <AuthPage onOpenLegal={setLegal} />
 
-  // "jobs:mine" ouvre la page Tâches sur l'onglet "mine"
+  // "jobs:mine" ouvre la page Tasks sur l'onglet "mine"
   const navigate = (target: string) => {
     const [p, t] = target.split(':')
     if (PAGES.includes(p as Page)) { setPage(p as Page); setTab(t) }

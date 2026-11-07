@@ -41,7 +41,7 @@ export default function NotificationsBell({ onNavigate }: { onNavigate: (target:
           <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-50 rounded-2xl overflow-hidden" style={{ ...glass, background: 'rgba(255,255,255,0.97)' }}>
             <div className="px-4 py-3 border-b text-sm font-semibold" style={{ borderColor: 'var(--border)', color: 'var(--ink)' }}>Notifications</div>
             <div className="max-h-96 overflow-y-auto divide-y" style={{ borderColor: 'var(--border)' }}>
-              {(data?.items ?? []).length === 0 && <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--muted)' }}>Aucune notification</div>}
+              {(data?.items ?? []).length === 0 && <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--muted)' }}>No notifications</div>}
               {(data?.items ?? []).map((n) => (
                 <button key={n.id} className="w-full text-left px-4 py-3 block" style={{ background: n.read ? 'transparent' : 'rgba(26,47,110,0.05)' }}
                   onClick={() => { setOpen(false); if (n.link) onNavigate(n.link) }}>

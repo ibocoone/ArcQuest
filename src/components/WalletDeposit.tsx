@@ -36,11 +36,11 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
       setLastTx(hash)
       setAmount('')
       onDone()
-      toast.success(`$${num.toFixed(2)} USDC déposés sur votre solde ArcQuest.`)
+      toast.success(`$${num.toFixed(2)} USDC deposited to your ArcQuest balance.`)
     } catch (err) {
-      console.error('Dépôt échoué :', err)
+      console.error('Deposit failed:', err)
       const msg = err instanceof Error ? err.message : ''
-      toast.error(/rejected|denied/i.test(msg) ? 'Transaction annulée.' : 'Le dépôt a échoué. Vérifiez votre solde USDC et réessayez.')
+      toast.error(/rejected|denied/i.test(msg) ? 'Transaction cancelled.' : 'The deposit failed. Check your USDC balance and try again.')
     } finally {
       setStep('idle')
     }
@@ -51,32 +51,32 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
       <div className="flex items-start gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(26,47,110,0.06)', border: '1px solid rgba(26,47,110,0.10)' }}>
         <Info size={16} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--accent)' }} />
         <div style={{ color: 'var(--ink-2)' }}>
-          Votre USDC est déposé dans le contrat ArcQuest sur Arc Testnet. Il reste à vous : vous pouvez le retirer à tout moment. La première fois, deux confirmations sont demandées (autorisation, puis dépôt).
+          Your USDC is deposited into the ArcQuest contract on Arc Testnet. It stays yours: you can withdraw it at any time. The first time, two confirmations are requested (approval, then deposit).
         </div>
       </div>
 
       {!VAULT_ADDRESS && (
         <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(186,43,76,0.08)', border: '1px solid rgba(186,43,76,0.15)', color: 'var(--danger)' }}>
           <AlertCircle size={15} className="mt-0.5 flex-shrink-0" />
-          <span>Les dépôts sont momentanément indisponibles. Réessayez plus tard.</span>
+          <span>Deposits are temporarily unavailable. Please try again later.</span>
         </div>
       )}
 
       {!isConnected ? (
         <div className="text-center py-6">
-          <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>Connectez votre portefeuille pour déposer du USDC</p>
+          <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>Connect your wallet to deposit USDC</p>
           <ConnectKitButton />
         </div>
       ) : wrongChain ? (
         <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-3" style={{ background: 'rgba(186,43,76,0.08)', border: '1px solid rgba(186,43,76,0.15)', color: 'var(--danger)' }}>
-          <span className="flex items-center gap-2 text-sm"><AlertCircle size={15} /> Passez sur Arc Testnet</span>
-          <button onClick={() => switchChain({ chainId: ARC_TESTNET_ID })} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'var(--danger)', color: 'white' }}>Changer</button>
+          <span className="flex items-center gap-2 text-sm"><AlertCircle size={15} /> Switch to Arc Testnet</span>
+          <button onClick={() => switchChain({ chainId: ARC_TESTNET_ID })} className="text-xs font-semibold px-3 py-1.5 rounded-lg" style={{ background: 'var(--danger)', color: 'white' }}>Switch</button>
         </div>
       ) : (
         <>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Montant (USDC)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Amount (USDC)</label>
               <span className="text-xs" style={{ color: 'var(--subtle)' }}>Wallet : <strong style={{ color: 'var(--ink)' }}>${walletBalance}</strong></span>
             </div>
             <div className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5" style={{ background: 'rgba(255,255,255,0.60)', border: '1px solid rgba(15,28,53,0.12)' }}>
@@ -99,7 +99,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
           {lastTx && (
             <a href={explorerTx(lastTx)} target="_blank" rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs rounded-xl px-4 py-3" style={{ background: 'rgba(26,128,71,0.08)', color: 'var(--success)' }}>
-              <CheckCircle2 size={13} /> Dernier dépôt confirmé
+              <CheckCircle2 size={13} /> Last deposit confirmed
               <ExternalLink size={11} className="ml-auto" />
             </a>
           )}
@@ -107,7 +107,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
           <button onClick={() => void handleDeposit()} disabled={disabled}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]"
             style={{ background: disabled ? 'var(--subtle)' : 'var(--accent)', color: 'white', cursor: disabled ? 'not-allowed' : 'pointer' }}>
-            {busy ? 'Confirmez dans le portefeuille…' : <><PlusCircle size={15} /> Déposer {valid ? `$${amount}` : ''} USDC</>}
+            {busy ? 'Confirm in your wallet…' : <><PlusCircle size={15} /> Deposit {valid ? `$${amount}` : ''} USDC</>}
           </button>
         </>
       )}

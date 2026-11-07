@@ -49,7 +49,7 @@ route('GET', '/admin/payments', 'admin', async () => {
 
 function kindOf(v: string | undefined): 'task' | 'contest' {
   if (v === 'task' || v === 'contest') return v
-  throw new HttpError(400, 'Type invalide.')
+  throw new HttpError(400, 'Invalid type.')
 }
 
 /** Toutes les tâches ou tous les concours, quel que soit leur statut. */
@@ -74,21 +74,21 @@ route('GET', '/admin/items', 'admin', async (c) => {
 route('POST', '/admin/items/:kind/:id/status', 'admin', async (c) => {
   const me = c.user as AuthUser
   const kind = kindOf(c.params.kind)
-  const id = uuid(c.params.id, 'Élément')
-  const status = str((await c.json()).status, 4, 7, 'Statut')
-  if (!['open', 'closed', 'removed'].includes(status)) throw new HttpError(400, 'Statut invalide.')
+  const id = uuid(c.params.id, 'Item')
+  const status = str((await c.json()).status, 4, 7, 'Status')
+  if (!['open', 'closed', 'removed'].includes(status)) throw new HttpError(400, 'Invalid status.')
   const r = kind === 'task'
     ? await one<{ creator_id: string; title: string }>(sql`UPDATE tasks SET status = ${status} WHERE id = ${id} RETURNING creator_id, title`)
     : await one<{ creator_id: string; title: string }>(sql`UPDATE contests SET status = ${status} WHERE id = ${id} RETURNING creator_id, title`)
-  if (!r) throw new HttpError(404, 'Élément introuvable.')
-  if (status === 'removed') await notify(r.creator_id, 'moderation', kind === 'task' ? 'Tâche retirée' : 'Concours retiré', `« ${r.title} » a été retiré par la modération.`)
+  if (!r) throw new HttpError(404, 'Item not found.')
+  if (status === 'removed') await notify(r.creator_id, 'moderation', kind === 'task' ? 'Task removed' : 'Contest removed', `"${r.title}" was removed by moderation.`)
   await audit(me.id, `${kind}.${status}`, id)
 })
 
 /** Soumissions ou participations d'une tâche ou d'un concours (traitement des litiges). */
 route('GET', '/admin/items/:kind/:id/entries', 'admin', async (c) => {
   const kind = kindOf(c.params.kind)
-  const id = uuid(c.params.id, 'Élément')
+  const id = uuid(c.params.id, 'Item')
   const list = kind === 'task'
     ? await rows<Row>(sql`
         SELECT s.id, s.status, s.proof_url, s.proof_file, s.note, s.reject_reason AS reason, s.pay_tx AS tx, s.created_at, u.username AS author

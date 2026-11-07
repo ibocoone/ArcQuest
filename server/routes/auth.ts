@@ -31,17 +31,17 @@ async function startSession(c: { setCookie: (v: string, s: number) => void }, us
 
 /** Consomme un nonce valide et vérifie la signature du message. Retourne l'adresse en minuscules. */
 async function checkWalletProof(body: Record<string, unknown>): Promise<string> {
-  const address = str(body.address, 42, 42, 'Adresse')
+  const address = str(body.address, 42, 42, 'Address')
   const message = str(body.message, 10, 500, 'Message')
   const signature = str(body.signature, 10, 300, 'Signature')
-  if (!isAddress(address)) throw new HttpError(400, 'Adresse invalide.')
-  const nonce = /Nonce : ([0-9a-f]{32})/.exec(message)?.[1]
-  const claimed = /Adresse : (0x[0-9a-fA-F]{40})/.exec(message)?.[1]
-  if (!nonce || claimed?.toLowerCase() !== address.toLowerCase()) throw new HttpError(400, 'Message de connexion invalide.')
+  if (!isAddress(address)) throw new HttpError(400, 'Invalid address.')
+  const nonce = /Nonce ?: ?([0-9a-f]{32})/.exec(message)?.[1]
+  const claimed = /(?:Address|Adresse) ?: ?(0x[0-9a-fA-F]{40})/.exec(message)?.[1]
+  if (!nonce || claimed?.toLowerCase() !== address.toLowerCase()) throw new HttpError(400, 'Invalid sign-in message.')
   const used = await one(sql`DELETE FROM nonces WHERE nonce = ${nonce} AND expires_at > now() RETURNING nonce`)
-  if (!used) throw new HttpError(400, 'Message expiré. Recommencez.')
+  if (!used) throw new HttpError(400, 'Message expired. Please try again.')
   const valid = await verifyMessage({ address, message, signature: signature as `0x${string}` }).catch(() => false)
-  if (!valid) throw new HttpError(401, 'Signature invalide.')
+  if (!valid) throw new HttpError(401, 'Invalid signature.')
   return address.toLowerCase()
 }
 
@@ -52,14 +52,14 @@ async function promoteIfAdmin(u: { id: string; email?: string | null; wallet?: s
 
 route('POST', '/auth/register', 'none', async (c) => {
   const b = await c.json()
-  const email = str(b.email, 5, 254, 'E-mail').toLowerCase()
-  const password = str(b.password, 8, 128, 'Mot de passe')
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Adresse e-mail invalide.')
+  const email = str(b.email, 5, 254, 'Email').toLowerCase()
+  const password = str(b.password, 8, 128, 'Password')
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'Invalid email address.')
   rateLimit('register:all', 60, 3_600_000)
   rateLimit(`register:${email}`, 5, 3_600_000)
-  if (await one(sql`SELECT 1 FROM users WHERE email = ${email}`)) throw new HttpError(409, 'Un compte avec cette adresse e-mail existe déjà.')
+  if (await one(sql`SELECT 1 FROM users WHERE email = ${email}`)) throw new HttpError(409, 'An account with this email already exists.')
 
-  const local = email.split('@')[0] ?? 'membre'
+  const local = email.split('@')[0] ?? 'member'
   const username = await uniqueUsername(local)
   const hash = await Bun.password.hash(password)
   const ref = await referrerId(b.referralCode)
@@ -67,7 +67,7 @@ route('POST', '/auth/register', 'none', async (c) => {
     INSERT INTO users (email, password_hash, username, display_name, referral_code, referred_by)
     VALUES (${email}, ${hash}, ${username}, ${local}, ${referralCode()}, ${ref})
     RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at`)
-  if (!u) throw new HttpError(500, 'Création du compte impossible.')
+  if (!u) throw new HttpError(500, 'Could not create the account.')
   await promoteIfAdmin({ id: u.id, email })
   await startSession(c, u.id)
   const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at FROM users WHERE id = ${u.id}`)
@@ -76,15 +76,15 @@ route('POST', '/auth/register', 'none', async (c) => {
 
 route('POST', '/auth/login', 'none', async (c) => {
   const b = await c.json()
-  const email = str(b.email, 5, 254, 'E-mail').toLowerCase()
-  const password = str(b.password, 1, 128, 'Mot de passe')
+  const email = str(b.email, 5, 254, 'Email').toLowerCase()
+  const password = str(b.password, 1, 128, 'Password')
   rateLimit(`login:${email}`, 10, 15 * 60_000)
-  const fail = new HttpError(401, 'E-mail ou mot de passe incorrect.')
+  const fail = new HttpError(401, 'Incorrect email or password.')
   const u = await one<AuthUser & { password_hash: string | null }>(sql`
     SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, password_hash
     FROM users WHERE email = ${email}`)
   if (!u?.password_hash || !(await Bun.password.verify(password, u.password_hash))) throw fail
-  if (u.status === 'suspended') throw new HttpError(403, 'Ce compte est suspendu.')
+  if (u.status === 'suspended') throw new HttpError(403, 'This account is suspended.')
   await promoteIfAdmin({ id: u.id, email })
   await startSession(c, u.id)
   return { user: publicUser(u) }
@@ -112,8 +112,8 @@ route('POST', '/auth/wallet', 'none', async (c) => {
       VALUES (${address}, ${username}, ${short}, ${referralCode()}, ${ref})
       RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at`)
   }
-  if (!u) throw new HttpError(500, 'Connexion impossible.')
-  if (u.status === 'suspended') throw new HttpError(403, 'Ce compte est suspendu.')
+  if (!u) throw new HttpError(500, 'Could not sign in.')
+  if (u.status === 'suspended') throw new HttpError(403, 'This account is suspended.')
   await promoteIfAdmin({ id: u.id, wallet: address })
   await startSession(c, u.id)
   const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at FROM users WHERE id = ${u.id}`)
@@ -141,9 +141,9 @@ route('GET', '/me', 'none', async (c) => {
 route('POST', '/me/wallet', 'user', async (c) => {
   const address = await checkWalletProof(await c.json())
   const me = c.user as AuthUser
-  if (me.wallet_address && me.wallet_address !== address) throw new HttpError(409, 'Un autre portefeuille est déjà lié à ce compte.')
+  if (me.wallet_address && me.wallet_address !== address) throw new HttpError(409, 'A different wallet is already linked to this account.')
   const taken = await one(sql`SELECT 1 FROM users WHERE wallet_address = ${address} AND id <> ${me.id}`)
-  if (taken) throw new HttpError(409, 'Ce portefeuille est déjà lié à un autre compte.')
+  if (taken) throw new HttpError(409, 'This wallet is already linked to another account.')
   await sql`UPDATE users SET wallet_address = ${address} WHERE id = ${me.id}`
   return { walletAddress: address }
 })
@@ -151,12 +151,12 @@ route('POST', '/me/wallet', 'user', async (c) => {
 route('POST', '/me/password', 'user', async (c) => {
   const b = await c.json()
   const me = c.user as AuthUser
-  const current = str(b.current, 1, 128, 'Mot de passe actuel')
-  const next = str(b.next, 8, 128, 'Nouveau mot de passe')
+  const current = str(b.current, 1, 128, 'Current password')
+  const next = str(b.next, 8, 128, 'New password')
   rateLimit(`pwd:${me.id}`, 10, 15 * 60_000)
   const row = await one<{ password_hash: string | null }>(sql`SELECT password_hash FROM users WHERE id = ${me.id}`)
-  if (!row?.password_hash) throw new HttpError(400, "Ce compte n'utilise pas de mot de passe.")
-  if (!(await Bun.password.verify(current, row.password_hash))) throw new HttpError(401, 'Mot de passe actuel incorrect.')
+  if (!row?.password_hash) throw new HttpError(400, "This account does not use a password.")
+  if (!(await Bun.password.verify(current, row.password_hash))) throw new HttpError(401, 'Current password is incorrect.')
   await sql`UPDATE users SET password_hash = ${await Bun.password.hash(next)} WHERE id = ${me.id}`
   return { ok: true }
 })

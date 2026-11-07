@@ -16,7 +16,7 @@ interface Sub {
 const nowSec = () => Math.floor(Date.now() / 1000)
 const errText = (e: unknown, fb: string) => {
   const m = e instanceof Error ? e.message : ''
-  return /rejected|denied/i.test(m) ? 'Transaction annulée.' : m || fb
+  return /rejected|denied/i.test(m) ? 'Transaction cancelled.' : m || fb
 }
 
 function SubmissionRow({ task, s }: { task: MyTask; s: Sub }) {
@@ -50,15 +50,15 @@ function SubmissionRow({ task, s }: { task: MyTask; s: Sub }) {
       }
       await api(`/submissions/${s.id}/approve`, { body: { txHash: hash } })
       localStorage.removeItem(pendingKey)
-      toast.success(`${usdc(task.reward)} versés à @${s.worker}.`)
+      toast.success(`${usdc(task.reward)} paid to @${s.worker}.`)
       await refresh()
-    } catch (e) { toast.error(errText(e, 'Paiement impossible.')) } finally { setBusy(false) }
+    } catch (e) { toast.error(errText(e, 'Payment failed.')) } finally { setBusy(false) }
   }
 
   const reject = useMutation({
     mutationFn: () => api(`/submissions/${s.id}/reject`, { body: { reason } }),
-    onSuccess: async () => { toast.success('Soumission refusée.'); setRejecting(false); await refresh() },
-    onError: (e) => toast.error(errText(e, 'Action impossible.')),
+    onSuccess: async () => { toast.success('Submission rejected.'); setRejecting(false); await refresh() },
+    onError: (e) => toast.error(errText(e, 'Action failed.')),
   })
 
   return (
@@ -69,30 +69,30 @@ function SubmissionRow({ task, s }: { task: MyTask; s: Sub }) {
         <span className="text-xs ml-auto" style={{ color: 'var(--subtle)' }}>{fmtDate(s.createdAt)}</span>
       </div>
       {s.proofUrl && <a href={s.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm break-all" style={{ color: 'var(--accent)' }}>{s.proofUrl} <ExternalLink size={12} /></a>}
-      {s.proofFile && <a href={uploadUrl(s.proofFile)} target="_blank" rel="noopener noreferrer"><img src={uploadUrl(s.proofFile)} alt="Capture d'écran fournie" className="max-h-56 rounded-lg border" style={{ borderColor: 'var(--border)' }} /></a>}
+      {s.proofFile && <a href={uploadUrl(s.proofFile)} target="_blank" rel="noopener noreferrer"><img src={uploadUrl(s.proofFile)} alt="Screenshot provided" className="max-h-56 rounded-lg border" style={{ borderColor: 'var(--border)' }} /></a>}
       {s.note && <p className="text-sm text-pretty" style={{ color: 'var(--ink-2)' }}>{s.note}</p>}
-      {s.rejectReason && <p className="text-xs" style={{ color: 'var(--danger)' }}>Motif : {s.rejectReason}</p>}
-      {s.payTx && <TxLink hash={s.payTx} label="Paiement" />}
+      {s.rejectReason && <p className="text-xs" style={{ color: 'var(--danger)' }}>Reason: {s.rejectReason}</p>}
+      {s.payTx && <TxLink hash={s.payTx} label="Payment" />}
 
       {s.status === 'pending' && (
         rejecting ? (
           <div className="space-y-2">
-            <input style={inputStyle} maxLength={300} placeholder="Motif du refus (visible par le participant)" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <input style={inputStyle} maxLength={300} placeholder="Reason for rejection (visible to the participant)" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="flex gap-2">
-              <button onClick={() => setRejecting(false)} className="flex-1 min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--muted)' }}>Annuler</button>
+              <button onClick={() => setRejecting(false)} className="flex-1 min-h-[44px] rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--muted)' }}>Cancel</button>
               <button onClick={() => reject.mutate()} disabled={reason.trim().length < 3 || reject.isPending} className="flex-1 min-h-[44px] rounded-xl text-sm font-semibold text-white"
-                style={{ background: reason.trim().length < 3 ? 'var(--subtle)' : 'var(--danger)' }}>Confirmer le refus</button>
+                style={{ background: reason.trim().length < 3 ? 'var(--subtle)' : 'var(--danger)' }}>Confirm rejection</button>
             </div>
           </div>
         ) : (
           <>
-            {!s.workerWallet && <p className="text-xs" style={{ color: 'var(--danger)' }}>Ce participant n'a pas de portefeuille lié.</p>}
+            {!s.workerWallet && <p className="text-xs" style={{ color: 'var(--danger)' }}>This participant has no linked wallet.</p>}
             {gate.message && <p className="text-xs" style={{ color: 'var(--danger)' }}>{gate.message}</p>}
-            {gate.ok && escrow.amount < rewardNum && !hasPendingTx && <p className="text-xs" style={{ color: 'var(--danger)' }}>Réserve insuffisante dans le contrat.</p>}
+            {gate.ok && escrow.amount < rewardNum && !hasPendingTx && <p className="text-xs" style={{ color: 'var(--danger)' }}>Not enough reserve in the contract.</p>}
             <div className="flex gap-2">
-              <button onClick={() => setRejecting(true)} disabled={busy} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)' }}><X size={15} /> Refuser</button>
+              <button onClick={() => setRejecting(true)} disabled={busy} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)' }}><X size={15} /> Reject</button>
               <button onClick={() => void approve()} disabled={busy || !canPay} className="flex-1 min-h-[44px] rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5" style={primaryBtn(busy || !canPay)}>
-                <Check size={15} /> {busy ? 'Paiement en cours…' : hasPendingTx ? 'Finaliser le paiement' : `Approuver et payer ${usdc(task.reward)}`}
+                <Check size={15} /> {busy ? 'Paying…' : hasPendingTx ? 'Finalize payment' : `Approve and pay ${usdc(task.reward)}`}
               </button>
             </div>
           </>
@@ -114,33 +114,33 @@ function TaskReview({ task }: { task: MyTask }) {
 
   const close = useMutation({
     mutationFn: () => api(`/tasks/${task.id}/close`, { body: {} }),
-    onSuccess: async () => { toast.success('Tâche fermée aux nouvelles soumissions.'); await qc.invalidateQueries({ queryKey: ['my-tasks'] }); await qc.invalidateQueries({ queryKey: ['tasks'] }) },
+    onSuccess: async () => { toast.success('Task closed to new submissions.'); await qc.invalidateQueries({ queryKey: ['my-tasks'] }); await qc.invalidateQueries({ queryKey: ['tasks'] }) },
   })
   const refund = async () => {
     setBusy(true)
     try {
       await refundTask(task.id, escrow.raw)
-      toast.success(`${usdc(escrow.amount)} récupérés dans votre solde.`)
+      toast.success(`${usdc(escrow.amount)} recovered to your balance.`)
       await escrow.refetch()
-    } catch (e) { toast.error(errText(e, 'Remboursement impossible.')) } finally { setBusy(false) }
+    } catch (e) { toast.error(errText(e, 'Refund failed.')) } finally { setBusy(false) }
   }
 
   return (
     <div className="px-4 pb-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap text-xs" style={{ color: 'var(--muted)' }}>
-        <span>Réserve restante : <strong className="tabular-nums" style={{ color: 'var(--ink)' }}>{usdc(escrow.amount)}</strong></span>
-        {escrow.refundableAfter > 0 && !unlocked && <span>· récupérable le {fmtDate(new Date(escrow.refundableAfter * 1000))}</span>}
+        <span>Remaining reserve : <strong className="tabular-nums" style={{ color: 'var(--ink)' }}>{usdc(escrow.amount)}</strong></span>
+        {escrow.refundableAfter > 0 && !unlocked && <span>· recoverable from {fmtDate(new Date(escrow.refundableAfter * 1000))}</span>}
       </div>
       <div className="flex gap-2 flex-wrap">
-        {task.status === 'open' && <button onClick={() => close.mutate()} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--ink-2)' }}>Fermer aux nouvelles soumissions</button>}
+        {task.status === 'open' && <button onClick={() => close.mutate()} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--ink-2)' }}>Close to new submissions</button>}
         {unlocked && escrow.amount > 0 && (
           <button onClick={() => void refund()} disabled={busy || !gate.ok} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={primaryBtn(busy || !gate.ok)}>
-            {busy ? 'Remboursement…' : `Récupérer ${usdc(escrow.amount)}`}
+            {busy ? 'Refunding…' : `Recover ${usdc(escrow.amount)}`}
           </button>
         )}
       </div>
       {isLoading ? <Loading /> : error ? <ErrorBox message={error.message} /> : (data?.items.length ?? 0) === 0
-        ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune soumission pour l'instant.</p>
+        ? <p className="text-sm" style={{ color: 'var(--muted)' }}>No submissions yet.</p>
         : <div className="space-y-2">{data?.items.map((s) => <SubmissionRow key={s.id} task={task} s={s} />)}</div>}
     </div>
   )
@@ -151,7 +151,7 @@ export default function MyTasks() {
   const { data, isLoading, error } = useQuery({ queryKey: ['my-tasks'], queryFn: () => api<{ items: MyTask[] }>('/me/tasks') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Vous n'avez publié aucune tâche" sub="Utilisez « Publier une tâche » pour financer et lancer la première." /></Card>
+  if (!data?.items.length) return <Card><Empty title="You have not published any task" sub={'Use "Publish a task" to fund and launch your first one.'} /></Card>
 
   return (
     <div className="space-y-3">
@@ -162,7 +162,7 @@ export default function MyTasks() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{t.title}</span>
                 <Pill status={t.status} />
-                {t.pending > 0 && <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--accent)' }}>{t.pending} à examiner</span>}
+                {t.pending > 0 && <span className="text-xs px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--accent)' }}>{t.pending} to review</span>}
               </div>
               <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>{usdc(t.reward)} · {t.taken}/{t.slots} places · limite {fmtDate(t.deadline)}</div>
             </div>

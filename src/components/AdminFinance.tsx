@@ -31,15 +31,15 @@ export default function AdminFinance() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Metric label="USDC détenu par le contrat" value={data.vaultUsdc === null ? 'Indisponible' : `$${usdc(data.vaultUsdc)}`} sub="Lu directement sur Arc Testnet" />
-        <Metric label="Total payé aux participants" value={`$${usdc(paid)}`} sub={`${data.taskPaid.count + data.contestPaid.count} paiements confirmés`} />
-        <Metric label="Financé pour des tâches" value={`$${usdc(data.funded.tasks)}`} />
-        <Metric label="Financé pour des concours" value={`$${usdc(data.funded.contests)}`} sub={`Total financé : $${usdc(funded)}`} />
+        <Metric label="USDC held by the contract" value={data.vaultUsdc === null ? 'Unavailable' : `${usdc(data.vaultUsdc)}`} sub="Read directly from Arc Testnet" />
+        <Metric label="Total paid to participants" value={`${usdc(paid)}`} sub={`${data.taskPaid.count + data.contestPaid.count} confirmed payments`} />
+        <Metric label="Funded for tasks" value={`${usdc(data.funded.tasks)}`} />
+        <Metric label="Funded for contests" value={`${usdc(data.funded.contests)}`} sub={`Total funded: ${usdc(funded)}`} />
       </div>
       <Card className="p-4">
-        <div className="font-semibold text-sm mb-3" style={{ color: 'var(--ink)' }}>7 derniers jours</div>
+        <div className="font-semibold text-sm mb-3" style={{ color: 'var(--ink)' }}>Last 7 days</div>
         <div className="grid grid-cols-4 gap-2 text-xs font-semibold uppercase tracking-wider pb-2" style={{ color: 'var(--muted)' }}>
-          <span>Jour</span><span className="text-right">Inscrits</span><span className="text-right">Tâches</span><span className="text-right">Soumissions</span>
+          <span>Day</span><span className="text-right">Sign-ups</span><span className="text-right">Tasks</span><span className="text-right">Submissions</span>
         </div>
         {data.daily.map((d) => (
           <div key={d.day} className="grid grid-cols-4 gap-2 py-1.5 text-sm tabular-nums" style={{ color: 'var(--ink)', borderTop: '1px solid var(--border)' }}>
@@ -48,7 +48,7 @@ export default function AdminFinance() {
         ))}
       </Card>
       <p className="text-xs text-pretty" style={{ color: 'var(--subtle)' }}>
-        Les fonds appartiennent aux utilisateurs : le contrat n'a pas d'administrateur et personne, vous compris, ne peut les déplacer. Ces chiffres servent au suivi.
+        Funds belong to users: the contract has no administrator and nobody, including you, can move them. These figures are for monitoring only.
       </p>
     </div>
   )

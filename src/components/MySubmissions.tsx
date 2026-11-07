@@ -8,7 +8,7 @@ export default function MySubmissions() {
   const { data, isLoading, error } = useQuery({ queryKey: ['my-submissions'], queryFn: () => api<{ items: Item[] }>('/me/submissions') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Aucune soumission" sub="Choisissez une tâche dans l'onglet Offres et envoyez votre preuve." /></Card>
+  if (!data?.items.length) return <Card><Empty title="No submissions" sub="Pick a task in the Offers tab and send your proof." /></Card>
   return (
     <div className="space-y-3">
       {data.items.map((s) => (
@@ -19,9 +19,9 @@ export default function MySubmissions() {
                 <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{s.title}</span>
                 <Pill status={s.status} />
               </div>
-              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Envoyée le {fmtDate(s.createdAt)}</div>
-              {s.rejectReason && <p className="text-sm mt-2 text-pretty" style={{ color: 'var(--danger)' }}>Motif du refus : {s.rejectReason}</p>}
-              {s.payTx && <div className="mt-1"><TxLink hash={s.payTx} label="Voir le paiement" /></div>}
+              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Sent {fmtDate(s.createdAt)}</div>
+              {s.rejectReason && <p className="text-sm mt-2 text-pretty" style={{ color: 'var(--danger)' }}>Reason for rejection: {s.rejectReason}</p>}
+              {s.payTx && <div className="mt-1"><TxLink hash={s.payTx} label="View payment" /></div>}
             </div>
             <span className="font-bold tabular-nums text-sm" style={{ color: s.status === 'approved' ? 'var(--success)' : 'var(--muted)' }}>{usdc(s.reward)}</span>
           </div>

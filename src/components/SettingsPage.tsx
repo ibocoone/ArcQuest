@@ -33,10 +33,10 @@ function WalletSection() {
       const signature = await signMessageAsync({ message })
       await api('/me/wallet', { body: { address, message, signature } })
       await refresh()
-      toast.success('Portefeuille lié à votre compte.')
+      toast.success('Wallet linked to your account.')
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
-      setError(/rejected|denied/i.test(msg) ? 'Signature annulée.' : msg || 'Liaison impossible.')
+      setError(/rejected|denied/i.test(msg) ? 'Signature cancelled.' : msg || 'Could not link wallet.')
     } finally { setBusy(false) }
   }
 
@@ -45,37 +45,37 @@ function WalletSection() {
 
   return (
     <Card className="p-5 space-y-3">
-      <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: 'var(--ink)' }}><Wallet size={16} /> Portefeuille</div>
+      <div className="flex items-center gap-2 font-semibold text-sm" style={{ color: 'var(--ink)' }}><Wallet size={16} /> Wallet</div>
       {linked ? (
         <>
-          <Row label="Portefeuille lié à ce compte" value={linked} mono />
+          <Row label="Wallet linked to this account" value={linked} mono />
           <div className="flex items-center gap-2 text-xs rounded-xl px-3 py-2.5" style={{ background: 'rgba(26,128,71,0.07)', color: 'var(--success)' }}>
-            <CheckCircle2 size={13} /> Vos paiements et vos publications utilisent ce portefeuille.
+            <CheckCircle2 size={13} /> Your payments and publications use this wallet.
           </div>
-          {mismatch && <ErrorBox message="Le portefeuille connecté est différent de celui lié au compte. Changez de compte dans votre portefeuille pour déposer, retirer ou publier." />}
+          {mismatch && <ErrorBox message="The connected wallet is different from the one linked to your account. Switch accounts in your wallet to deposit, withdraw or publish." />}
           {!isConnected && <ConnectKitButton />}
         </>
       ) : (
         <>
           <p className="text-sm text-pretty" style={{ color: 'var(--muted)' }}>
-            Liez un portefeuille pour être payé, publier des tâches et utiliser votre solde. Vous signez un message gratuit pour prouver que le portefeuille est à vous.
+            Link a wallet to get paid, publish tasks and use your balance. You sign a free message to prove the wallet is yours.
           </p>
           {isConnected && address ? (
             <button onClick={() => void link()} disabled={busy} className="w-full min-h-[44px] rounded-xl text-sm font-semibold" style={primaryBtn(busy)}>
-              {busy ? 'Signature en cours…' : `Lier ${address.slice(0, 6)}…${address.slice(-4)}`}
+              {busy ? 'Signing…' : `Link ${address.slice(0, 6)}…${address.slice(-4)}`}
             </button>
-          ) : <ConnectKitButton label="Connecter un portefeuille" />}
+          ) : <ConnectKitButton label="Connect a wallet" />}
           {error && <ErrorBox message={error} />}
         </>
       )}
       {isConnected && address && (
         <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(15,28,53,0.04)' }}>
           <div className="min-w-0">
-            <div className="text-xs" style={{ color: 'var(--muted)' }}>Portefeuille connecté</div>
+            <div className="text-xs" style={{ color: 'var(--muted)' }}>Connected wallet</div>
             <div className="mono text-xs truncate" style={{ color: 'var(--ink)' }}>{address}</div>
           </div>
           <button onClick={() => disconnect()} className="flex-shrink-0 min-h-[40px] px-3 rounded-xl text-xs font-semibold" style={{ background: 'rgba(224,59,79,0.08)', color: 'var(--danger, #e03b4f)' }}>
-            Déconnecter
+            Disconnect
           </button>
         </div>
       )}
@@ -94,18 +94,18 @@ function PasswordSection() {
     try {
       await api('/me/password', { body: { current, next } })
       setCurrent(''); setNext('')
-      toast.success('Mot de passe mis à jour.')
-    } catch (err) { setError(err instanceof Error ? err.message : 'Mise à jour impossible.') } finally { setBusy(false) }
+      toast.success('Password updated.')
+    } catch (err) { setError(err instanceof Error ? err.message : 'Could not update.') } finally { setBusy(false) }
   }
   const disabled = busy || !current || next.length < 8
 
   return (
     <Card className="p-5 space-y-3">
-      <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>Mot de passe</div>
-      <div><Label>Mot de passe actuel</Label><input type="password" autoComplete="current-password" style={inputStyle} value={current} onChange={(e) => setCurrent(e.target.value)} /></div>
-      <div><Label>Nouveau mot de passe (8 caractères minimum)</Label><input type="password" autoComplete="new-password" style={inputStyle} value={next} onChange={(e) => setNext(e.target.value)} /></div>
+      <div className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>Password</div>
+      <div><Label>Current password</Label><input type="password" autoComplete="current-password" style={inputStyle} value={current} onChange={(e) => setCurrent(e.target.value)} /></div>
+      <div><Label>New password (8 characters minimum)</Label><input type="password" autoComplete="new-password" style={inputStyle} value={next} onChange={(e) => setNext(e.target.value)} /></div>
       {error && <ErrorBox message={error} />}
-      <button onClick={() => void save()} disabled={disabled} className="w-full min-h-[44px] rounded-xl text-sm font-semibold" style={primaryBtn(disabled)}>Mettre à jour</button>
+      <button onClick={() => void save()} disabled={disabled} className="w-full min-h-[44px] rounded-xl text-sm font-semibold" style={primaryBtn(disabled)}>Update</button>
     </Card>
   )
 }
@@ -116,24 +116,24 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-5">
-      <PageTitle title="Paramètres" />
+      <PageTitle title="Settings" />
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0" style={{ background: 'var(--accent)' }}>{user.avatar}</div>
           <div className="min-w-0">
             <div className="display font-bold text-lg truncate" style={{ color: 'var(--ink)' }}>{user.fullName}</div>
-            <div className="text-xs" style={{ color: 'var(--subtle)' }}>Membre depuis {fmtDate(user.createdAt)}</div>
+            <div className="text-xs" style={{ color: 'var(--subtle)' }}>Member since {fmtDate(user.createdAt)}</div>
           </div>
         </div>
-        {user.email && <Row label="Adresse e-mail" value={user.email} />}
-        <Row label="Nom public" value={`@${user.username}`} />
-        <Row label="Code de parrainage" value={user.referralCode} mono />
+        {user.email && <Row label="Email address" value={user.email} />}
+        <Row label="Public name" value={`@${user.username}`} />
+        <Row label="Referral code" value={user.referralCode} mono />
       </Card>
       <WalletSection />
       {user.email && <PasswordSection />}
       <button onClick={() => void logout()} className="w-full min-h-[44px] rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
         style={{ background: 'rgba(186,43,76,0.08)', border: '1px solid rgba(186,43,76,0.15)', color: 'var(--danger)' }}>
-        <LogOut size={16} /> Se déconnecter
+        <LogOut size={16} /> Sign out
       </button>
     </div>
   )

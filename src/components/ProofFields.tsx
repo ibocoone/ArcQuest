@@ -18,16 +18,16 @@ export default function ProofFields({ value, onChange, noteRequired = false }: {
   return (
     <div className="space-y-3">
       <div>
-        <Label>Lien de preuve</Label>
+        <Label>Proof link</Label>
         <input style={inputStyle} placeholder="https://…" value={value.url} onChange={(e) => set({ url: e.target.value })} />
       </div>
       <div>
-        <Label>Ou une capture d'écran (PNG, JPEG, WebP, 3 Mo max)</Label>
+        <Label>Or a screenshot (PNG, JPEG, WebP, 3 MB max)</Label>
         {value.file ? (
           <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm" style={{ background: 'rgba(26,47,110,0.06)' }}>
             <ImageIcon size={15} style={{ color: 'var(--accent)' }} />
             <span className="flex-1 truncate" style={{ color: 'var(--ink)' }}>{value.file.name}</span>
-            <button type="button" onClick={() => set({ file: null })} aria-label="Retirer l'image" className="p-1" style={{ color: 'var(--muted)' }}><X size={15} /></button>
+            <button type="button" onClick={() => set({ file: null })} aria-label="Remove image" className="p-1" style={{ color: 'var(--muted)' }}><X size={15} /></button>
           </div>
         ) : (
           <input type="file" accept="image/png,image/jpeg,image/webp" className="text-sm w-full"
@@ -35,8 +35,8 @@ export default function ProofFields({ value, onChange, noteRequired = false }: {
         )}
       </div>
       <div>
-        <Label>Note {noteRequired ? '' : '(optionnel)'}</Label>
-        <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} maxLength={1000} placeholder="Précisions pour le créateur"
+        <Label>Note {noteRequired ? '' : '(optional)'}</Label>
+        <textarea style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }} maxLength={1000} placeholder="Details for the creator"
           value={value.note} onChange={(e) => set({ note: e.target.value })} />
       </div>
     </div>

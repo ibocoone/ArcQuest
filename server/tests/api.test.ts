@@ -41,7 +41,7 @@ async function walletUser(): Promise<{ c: Client; address: string }> {
   const account = privateKeyToAccount(generatePrivateKey())
   const c = new Client()
   const { body: nb } = await c.req('GET', '/auth/nonce')
-  const message = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${nb.nonce}`
+  const message = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${nb.nonce}`
   const signature = await account.signMessage({ message })
   const r = await c.req('POST', '/auth/wallet', { address: account.address, message, signature })
   expect(r.status).toBe(200)
@@ -107,11 +107,11 @@ describe('comptes et sessions', () => {
     const other = privateKeyToAccount(generatePrivateKey())
     const c = new Client()
     const { body } = await c.req('GET', '/auth/nonce')
-    const message = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${body.nonce}`
+    const message = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${body.nonce}`
     const forged = await other.signMessage({ message })
     expect((await c.req('POST', '/auth/wallet', { address: account.address, message, signature: forged })).status).toBe(401)
     const { body: b2 } = await c.req('GET', '/auth/nonce')
-    const m2 = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${b2.nonce}`
+    const m2 = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${b2.nonce}`
     const sig = await account.signMessage({ message: m2 })
     const ok = await c.req('POST', '/auth/wallet', { address: account.address, message: m2, signature: sig })
     expect(ok.status).toBe(200)
@@ -123,12 +123,12 @@ describe('comptes et sessions', () => {
     const { c } = await emailUser()
     const account = privateKeyToAccount(generatePrivateKey())
     const { body } = await c.req('GET', '/auth/nonce')
-    const message = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${body.nonce}`
+    const message = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${body.nonce}`
     const signature = await account.signMessage({ message })
     expect((await c.req('POST', '/me/wallet', { address: account.address, message, signature })).status).toBe(200)
     const { c: c2 } = await emailUser()
     const { body: b2 } = await c2.req('GET', '/auth/nonce')
-    const m2 = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${b2.nonce}`
+    const m2 = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${b2.nonce}`
     expect((await c2.req('POST', '/me/wallet', { address: account.address, message: m2, signature: await account.signMessage({ message: m2 }) })).status).toBe(409)
   })
 })

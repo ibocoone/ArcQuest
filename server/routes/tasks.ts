@@ -39,23 +39,23 @@ function sniff(b: Uint8Array): string | null {
 route('POST', '/uploads', 'user', async (c) => {
   const me = c.user as AuthUser
   rateLimit(`upload:${me.id}`, 30, 3_600_000)
-  const form = await c.req.formData().catch(() => { throw new HttpError(400, 'Fichier invalide.') })
+  const form = await c.req.formData().catch(() => { throw new HttpError(400, 'Invalid file.') })
   const file = form.get('file')
-  if (!(file instanceof File)) throw new HttpError(400, 'Aucun fichier envoyé.')
-  if (file.size > 3 * 1024 * 1024) throw new HttpError(413, 'Image trop lourde (3 Mo max).')
+  if (!(file instanceof File)) throw new HttpError(400, 'No file uploaded.')
+  if (file.size > 3 * 1024 * 1024) throw new HttpError(413, 'Image too large (3 MB max).')
   const bytes = new Uint8Array(await file.arrayBuffer())
   const mime = sniff(bytes)
-  if (!mime) throw new HttpError(400, 'Formats acceptés : PNG, JPEG, WebP.')
+  if (!mime) throw new HttpError(400, 'Accepted formats: PNG, JPEG, WebP.')
   const row = await one<{ id: string }>(sql`INSERT INTO uploads (user_id, mime, size, data) VALUES (${me.id}, ${mime}, ${bytes.length}, ${Buffer.from(bytes)}) RETURNING id`)
-  if (!row) throw new HttpError(500, 'Envoi impossible.')
+  if (!row) throw new HttpError(500, 'Upload failed.')
   return { id: row.id }
 })
 
 route('GET', '/uploads/:id', 'user', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Fichier')
+  const id = uuid(c.params.id, 'File')
   const up = await one<{ user_id: string; mime: string; data: Uint8Array | null }>(sql`SELECT user_id, mime, data FROM uploads WHERE id = ${id}`)
-  if (!up?.data) throw new HttpError(404, 'Fichier introuvable.')
+  if (!up?.data) throw new HttpError(404, 'File not found.')
   let allowed = up.user_id === me.id || me.role === 'admin'
   if (!allowed) {
     allowed = !!(await one(sql`
@@ -63,7 +63,7 @@ route('GET', '/uploads/:id', 'user', async (c) => {
       UNION ALL
       SELECT 1 FROM contest_entries e JOIN contests k ON k.id = e.contest_id WHERE e.proof_file = ${id} AND k.creator_id = ${me.id}`))
   }
-  if (!allowed) throw new HttpError(403, 'Accès refusé.')
+  if (!allowed) throw new HttpError(403, 'Access denied.')
   return new Response(new Uint8Array(up.data), {
     headers: { 'content-type': up.mime, 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox", 'cache-control': 'private, max-age=3600' },
   })
@@ -87,8 +87,8 @@ route('GET', '/tasks', 'user', async (c) => {
 })
 
 route('GET', '/tasks/:id', 'user', async (c) => {
-  const t = await one<TaskRow>(sql`${SELECT((c.user as AuthUser).id)} WHERE t.id = ${uuid(c.params.id, 'Tâche')}`)
-  if (!t || t.status === 'removed') throw new HttpError(404, 'Tâche introuvable.')
+  const t = await one<TaskRow>(sql`${SELECT((c.user as AuthUser).id)} WHERE t.id = ${uuid(c.params.id, 'Task')}`)
+  if (!t || t.status === 'removed') throw new HttpError(404, 'Task not found.')
   return taskOut(t)
 })
 
@@ -96,28 +96,28 @@ route('POST', '/tasks', 'user', async (c) => {
   const me = c.user as AuthUser
   const b = await c.json()
   rateLimit(`task:${me.id}`, 20, 3_600_000)
-  const id = uuid(b.id, 'Identifiant')
-  const title = str(b.title, 3, 120, 'Titre')
+  const id = uuid(b.id, 'ID')
+  const title = str(b.title, 3, 120, 'Title')
   const description = str(b.description, 10, 1000, 'Description')
   const instructions = str(b.instructions, 10, 2000, 'Instructions')
   const type = str(b.type, 2, 20, 'Type')
-  if (!TYPES.includes(type)) throw new HttpError(400, 'Type invalide.')
-  const reward = amount(b.reward, 'Récompense')
+  if (!TYPES.includes(type)) throw new HttpError(400, 'Invalid type.')
+  const reward = amount(b.reward, 'Reward')
   const slots = Number(b.slots)
-  if (!Number.isInteger(slots) || slots < 1 || slots > 10_000) throw new HttpError(400, 'Nombre de places invalide (1 à 10 000).')
-  const deadline = new Date(str(b.deadline, 10, 40, 'Date limite'))
+  if (!Number.isInteger(slots) || slots < 1 || slots > 10_000) throw new HttpError(400, 'Invalid number of places (1 to 10,000).')
+  const deadline = new Date(str(b.deadline, 10, 40, 'Deadline'))
   if (!(deadline.getTime() > Date.now() + 3_600_000) || deadline.getTime() > Date.now() + 365 * 86_400_000) {
-    throw new HttpError(400, 'La date limite doit être dans plus d\'une heure et moins d\'un an.')
+    throw new HttpError(400, 'The deadline must be more than one hour and less than one year away.')
   }
-  if (!me.wallet_address) throw new HttpError(400, 'Liez un portefeuille à votre compte pour publier une tâche.')
+  if (!me.wallet_address) throw new HttpError(400, 'Link a wallet to your account to publish a task.')
   const hash = txHash(b.fundTx)
   await verifyFunding(hash, id, me.wallet_address, toRaw(reward) * BigInt(slots))
   try {
     await sql`INSERT INTO tasks (id, creator_id, title, description, instructions, type, platform, url, reward, slots, deadline, fund_tx)
-      VALUES (${id}, ${me.id}, ${title}, ${description}, ${instructions}, ${type}, ${optStr(b.platform, 60, 'Plateforme')}, ${httpUrl(b.url, 'Lien')},
+      VALUES (${id}, ${me.id}, ${title}, ${description}, ${instructions}, ${type}, ${optStr(b.platform, 60, 'Platform')}, ${httpUrl(b.url, 'Link')},
               ${reward}, ${slots}, ${deadline.toISOString()}, ${hash})`
   } catch (e) {
-    if (isDup(e)) throw new HttpError(409, 'Cette tâche ou cette transaction est déjà enregistrée.')
+    if (isDup(e)) throw new HttpError(409, 'This task or transaction is already registered.')
     throw e
   }
   return { id }
@@ -125,9 +125,9 @@ route('POST', '/tasks', 'user', async (c) => {
 
 route('POST', '/tasks/:id/close', 'user', async (c) => {
   const me = c.user as AuthUser
-  const id = uuid(c.params.id, 'Tâche')
+  const id = uuid(c.params.id, 'Task')
   const r = await one(sql`UPDATE tasks SET status = 'closed' WHERE id = ${id} AND (creator_id = ${me.id} OR ${me.role === 'admin'}) AND status = 'open' RETURNING id`)
-  if (!r) throw new HttpError(404, 'Tâche introuvable ou déjà fermée.')
+  if (!r) throw new HttpError(404, 'Task not found or already closed.')
   return { ok: true }
 })
 
@@ -135,31 +135,31 @@ route('POST', '/tasks/:id/close', 'user', async (c) => {
 
 route('POST', '/tasks/:id/submissions', 'user', async (c) => {
   const me = c.user as AuthUser
-  const taskId = uuid(c.params.id, 'Tâche')
+  const taskId = uuid(c.params.id, 'Task')
   const b = await c.json()
   rateLimit(`submit:${me.id}`, 60, 3_600_000)
-  if (!me.wallet_address) throw new HttpError(400, 'Liez un portefeuille à votre compte pour être payé.')
-  const proofUrl = httpUrl(b.proofUrl, 'Lien de preuve')
+  if (!me.wallet_address) throw new HttpError(400, 'Link a wallet to your account to get paid.')
+  const proofUrl = httpUrl(b.proofUrl, 'Proof link')
   const note = optStr(b.note, 1000, 'Note')
-  const proofFile = b.proofFile ? uuid(b.proofFile, 'Fichier') : null
-  if (!proofUrl && !proofFile) throw new HttpError(400, 'Ajoutez une preuve : un lien ou une capture d\'écran.')
-  if (proofFile && !(await one(sql`SELECT 1 FROM uploads WHERE id = ${proofFile} AND user_id = ${me.id}`))) throw new HttpError(400, 'Fichier introuvable.')
+  const proofFile = b.proofFile ? uuid(b.proofFile, 'File') : null
+  if (!proofUrl && !proofFile) throw new HttpError(400, 'Add proof: a link or a screenshot.')
+  if (proofFile && !(await one(sql`SELECT 1 FROM uploads WHERE id = ${proofFile} AND user_id = ${me.id}`))) throw new HttpError(400, 'File not found.')
 
   try {
     const creator = await sql.begin(async (tx) => {
       const [t] = (await tx`SELECT id, creator_id, slots, deadline, status, title FROM tasks WHERE id = ${taskId} FOR UPDATE`) as
         { id: string; creator_id: string; slots: number; deadline: Date; status: string; title: string }[]
-      if (!t || t.status !== 'open') throw new HttpError(404, 'Cette tâche n\'est plus disponible.')
-      if (t.creator_id === me.id) throw new HttpError(400, 'Vous ne pouvez pas réaliser votre propre tâche.')
-      if (new Date(t.deadline).getTime() <= Date.now()) throw new HttpError(400, 'La date limite est dépassée.')
+      if (!t || t.status !== 'open') throw new HttpError(404, 'This task is no longer available.')
+      if (t.creator_id === me.id) throw new HttpError(400, 'You cannot do your own task.')
+      if (new Date(t.deadline).getTime() <= Date.now()) throw new HttpError(400, 'The deadline has passed.')
       const [n] = (await tx`SELECT count(*)::int AS n FROM submissions WHERE task_id = ${taskId} AND status IN ('pending','approved')`) as { n: number }[]
-      if ((n?.n ?? 0) >= t.slots) throw new HttpError(409, 'Toutes les places sont prises.')
+      if ((n?.n ?? 0) >= t.slots) throw new HttpError(409, 'All places are taken.')
       await tx`INSERT INTO submissions (task_id, worker_id, proof_url, proof_file, note) VALUES (${taskId}, ${me.id}, ${proofUrl}, ${proofFile}, ${note})`
       return { id: t.creator_id, title: t.title }
     })
-    await notify(creator.id, 'submission', 'Nouvelle soumission', `@${me.username} a soumis « ${creator.title} ».`, 'jobs:mine')
+    await notify(creator.id, 'submission', 'New submission', `@${me.username} submitted "${creator.title}".`, 'jobs:mine')
   } catch (e) {
-    if (isDup(e)) throw new HttpError(409, 'Vous avez déjà soumis cette tâche.')
+    if (isDup(e)) throw new HttpError(409, 'You have already submitted this task.')
     throw e
   }
   return { ok: true }
@@ -183,9 +183,9 @@ route('GET', '/me/tasks', 'user', async (c) => {
 
 route('GET', '/tasks/:id/submissions', 'user', async (c) => {
   const me = c.user as AuthUser
-  const taskId = uuid(c.params.id, 'Tâche')
+  const taskId = uuid(c.params.id, 'Task')
   const t = await one<{ creator_id: string }>(sql`SELECT creator_id FROM tasks WHERE id = ${taskId}`)
-  if (!t || (t.creator_id !== me.id && me.role !== 'admin')) throw new HttpError(403, 'Accès refusé.')
+  if (!t || (t.creator_id !== me.id && me.role !== 'admin')) throw new HttpError(403, 'Access denied.')
   const list = await rows<Record<string, unknown>>(sql`
     SELECT s.id, s.status, s.proof_url, s.proof_file, s.note, s.reject_reason, s.pay_tx, s.created_at, u.username, u.wallet_address
     FROM submissions s JOIN users u ON u.id = s.worker_id WHERE s.task_id = ${taskId} ORDER BY s.created_at ASC`)
@@ -196,33 +196,33 @@ async function ownedSubmission(c: { user: AuthUser | null; params: Record<string
   const me = c.user as AuthUser
   const s = await one<{ id: string; status: string; task_id: string; worker_id: string; reward: string; title: string; creator_id: string; wallet: string | null }>(sql`
     SELECT s.id, s.status, s.task_id, s.worker_id, t.reward, t.title, t.creator_id, u.wallet_address AS wallet
-    FROM submissions s JOIN tasks t ON t.id = s.task_id JOIN users u ON u.id = s.worker_id WHERE s.id = ${uuid(c.params.id, 'Soumission')}`)
-  if (!s || s.creator_id !== me.id) throw new HttpError(403, 'Accès refusé.')
-  if (s.status !== 'pending') throw new HttpError(409, 'Cette soumission a déjà été traitée.')
+    FROM submissions s JOIN tasks t ON t.id = s.task_id JOIN users u ON u.id = s.worker_id WHERE s.id = ${uuid(c.params.id, 'Submission')}`)
+  if (!s || s.creator_id !== me.id) throw new HttpError(403, 'Access denied.')
+  if (s.status !== 'pending') throw new HttpError(409, 'This submission has already been handled.')
   return s
 }
 
 route('POST', '/submissions/:id/approve', 'user', async (c) => {
   const s = await ownedSubmission(c)
   const hash = txHash((await c.json()).txHash)
-  if (!s.wallet) throw new HttpError(400, 'Le travailleur n\'a pas de portefeuille lié.')
+  if (!s.wallet) throw new HttpError(400, 'The worker has no linked wallet.')
   await verifyRelease(hash, s.task_id, s.wallet, toRaw(s.reward))
   try {
     await sql`UPDATE submissions SET status = 'approved', pay_tx = ${hash}, reviewed_at = now() WHERE id = ${s.id} AND status = 'pending'`
   } catch (e) {
-    if (isDup(e)) throw new HttpError(409, 'Cette transaction est déjà associée à un paiement.')
+    if (isDup(e)) throw new HttpError(409, 'This transaction is already linked to a payment.')
     throw e
   }
-  await notify(s.worker_id, 'paid', 'Paiement reçu', `${s.reward} USDC pour « ${s.title} » ont été ajoutés à votre solde.`, 'wallet')
+  await notify(s.worker_id, 'paid', 'Payment received', `${s.reward} USDC for "${s.title}" were added to your balance.`, 'wallet')
   await audit((c.user as AuthUser).id, 'submission.approve', s.id, { hash })
   return { ok: true }
 })
 
 route('POST', '/submissions/:id/reject', 'user', async (c) => {
   const s = await ownedSubmission(c)
-  const reason = str((await c.json()).reason, 3, 300, 'Motif')
+  const reason = str((await c.json()).reason, 3, 300, 'Reason')
   await sql`UPDATE submissions SET status = 'rejected', reject_reason = ${reason}, reviewed_at = now() WHERE id = ${s.id} AND status = 'pending'`
-  await notify(s.worker_id, 'rejected', 'Soumission refusée', `« ${s.title} » : ${reason}`, 'jobs:submissions')
+  await notify(s.worker_id, 'rejected', 'Submission rejected', `"${s.title}": ${reason}`, 'jobs:submissions')
   await audit((c.user as AuthUser).id, 'submission.reject', s.id, { reason })
   return { ok: true }
 })

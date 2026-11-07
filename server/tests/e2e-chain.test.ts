@@ -49,7 +49,7 @@ async function signIn(pk: `0x${string}`): Promise<Client> {
   const account = privateKeyToAccount(pk)
   const c = new Client()
   const { body } = await c.req('GET', '/auth/nonce')
-  const message = `ArcQuest : preuve de propriété du portefeuille\nAdresse : ${account.address}\nNonce : ${body.nonce}`
+  const message = `ArcQuest : proof of wallet ownership\nAddress: ${account.address}\nNonce: ${body.nonce}`
   const signature = await account.signMessage({ message })
   const r = await c.req('POST', '/auth/wallet', { address: account.address, message, signature })
   expect(r.status).toBe(200)

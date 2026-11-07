@@ -17,7 +17,7 @@ interface Entry {
 const nowSec = () => Math.floor(Date.now() / 1000)
 const errText = (e: unknown, fb: string) => {
   const m = e instanceof Error ? e.message : ''
-  return /rejected|denied/i.test(m) ? 'Transaction annulée.' : m || fb
+  return /rejected|denied/i.test(m) ? 'Transaction cancelled.' : m || fb
 }
 
 function EntryRow({ contest, e, free }: { contest: MyContest; e: Entry; free: Prize[] }) {
@@ -43,14 +43,14 @@ function EntryRow({ contest, e, free }: { contest: MyContest; e: Entry; free: Pr
       }
       await api(`/entries/${e.id}/award`, { body: { prizePlace: place, txHash: hash } })
       localStorage.removeItem(pendingKey)
-      toast.success(`${usdc(prize.amount)} versés à @${e.user}.`)
+      toast.success(`${usdc(prize.amount)} paid to @${e.user}.`)
       await refresh()
-    } catch (err) { toast.error(errText(err, 'Paiement impossible.')) } finally { setBusy(false) }
+    } catch (err) { toast.error(errText(err, 'Payment failed.')) } finally { setBusy(false) }
   }
   const reject = useMutation({
     mutationFn: () => api(`/entries/${e.id}/reject`, { body: {} }),
     onSuccess: refresh,
-    onError: (err) => toast.error(errText(err, 'Action impossible.')),
+    onError: (err) => toast.error(errText(err, 'Action failed.')),
   })
 
   return (
@@ -62,25 +62,25 @@ function EntryRow({ contest, e, free }: { contest: MyContest; e: Entry; free: Pr
         <span className="text-xs ml-auto" style={{ color: 'var(--subtle)' }}>{fmtDate(e.createdAt)}</span>
       </div>
       {e.proofUrl && <a href={e.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm break-all" style={{ color: 'var(--accent)' }}>{e.proofUrl} <ExternalLink size={12} /></a>}
-      {e.proofFile && <a href={uploadUrl(e.proofFile)} target="_blank" rel="noopener noreferrer"><img src={uploadUrl(e.proofFile)} alt="Image de la participation" className="max-h-56 rounded-lg border" style={{ borderColor: 'var(--border)' }} /></a>}
+      {e.proofFile && <a href={uploadUrl(e.proofFile)} target="_blank" rel="noopener noreferrer"><img src={uploadUrl(e.proofFile)} alt="Entry image" className="max-h-56 rounded-lg border" style={{ borderColor: 'var(--border)' }} /></a>}
       {e.note && <p className="text-sm text-pretty" style={{ color: 'var(--ink-2)' }}>{e.note}</p>}
-      {e.payTx && <TxLink hash={e.payTx} label="Paiement du prix" />}
+      {e.payTx && <TxLink hash={e.payTx} label="Prize payment" />}
       {e.status === 'pending' && (
         <div className="space-y-2">
           {gate.message && <p className="text-xs" style={{ color: 'var(--danger)' }}>{gate.message}</p>}
-          {!e.userWallet && <p className="text-xs" style={{ color: 'var(--danger)' }}>Ce participant n'a pas de portefeuille lié.</p>}
+          {!e.userWallet && <p className="text-xs" style={{ color: 'var(--danger)' }}>This participant has no linked wallet.</p>}
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => reject.mutate()} disabled={busy} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)' }}><X size={15} /> Écarter</button>
+            <button onClick={() => reject.mutate()} disabled={busy} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5" style={{ background: 'rgba(186,43,76,0.08)', color: 'var(--danger)' }}><X size={15} /> Dismiss</button>
             {free.length > 0 ? (
               <>
-                <select style={{ ...inputStyle, width: 'auto', minHeight: 44 }} value={place} onChange={(ev) => setPlace(ev.target.value)} aria-label="Prix à attribuer">
+                <select style={{ ...inputStyle, width: 'auto', minHeight: 44 }} value={place} onChange={(ev) => setPlace(ev.target.value)} aria-label="Prize to award">
                   {free.map((p) => <option key={p.place} value={p.place}>{p.place} · {usdc(p.amount)}</option>)}
                 </select>
                 <button onClick={() => void award()} disabled={busy || !gate.ok || !e.userWallet || !prize} className="flex-1 min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5" style={primaryBtn(busy || !gate.ok || !e.userWallet)}>
-                  <Award size={15} /> {busy ? 'Paiement…' : hasPending ? 'Finaliser le paiement' : 'Attribuer et payer'}
+                  <Award size={15} /> {busy ? 'Paying…' : hasPending ? 'Finalize payment' : 'Award and pay'}
                 </button>
               </>
-            ) : <span className="text-xs self-center" style={{ color: 'var(--muted)' }}>Tous les prix sont attribués.</span>}
+            ) : <span className="text-xs self-center" style={{ color: 'var(--muted)' }}>All prizes are awarded.</span>}
           </div>
         </div>
       )}
@@ -106,20 +106,20 @@ function ContestReview({ contest }: { contest: MyContest }) {
   })
   const refund = async () => {
     setBusy(true)
-    try { await refundTask(contest.id, escrow.raw); toast.success(`${usdc(escrow.amount)} récupérés.`); await escrow.refetch() }
-    catch (e) { toast.error(errText(e, 'Remboursement impossible.')) } finally { setBusy(false) }
+    try { await refundTask(contest.id, escrow.raw); toast.success(`${usdc(escrow.amount)} recovered.`); await escrow.refetch() }
+    catch (e) { toast.error(errText(e, 'Refund failed.')) } finally { setBusy(false) }
   }
 
   return (
     <div className="px-4 pb-4 space-y-3">
-      <div className="text-xs" style={{ color: 'var(--muted)' }}>Réserve restante : <strong className="tabular-nums" style={{ color: 'var(--ink)' }}>{usdc(escrow.amount)}</strong>
-        {escrow.refundableAfter > 0 && !unlocked && <> · récupérable le {fmtDate(new Date(escrow.refundableAfter * 1000))}</>}</div>
+      <div className="text-xs" style={{ color: 'var(--muted)' }}>Remaining reserve : <strong className="tabular-nums" style={{ color: 'var(--ink)' }}>{usdc(escrow.amount)}</strong>
+        {escrow.refundableAfter > 0 && !unlocked && <> · recoverable from {fmtDate(new Date(escrow.refundableAfter * 1000))}</>}</div>
       <div className="flex gap-2 flex-wrap">
-        {contest.status === 'open' && <button onClick={() => close.mutate()} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--ink-2)' }}>Fermer aux participations</button>}
-        {unlocked && escrow.amount > 0 && <button onClick={() => void refund()} disabled={busy || !gate.ok} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={primaryBtn(busy || !gate.ok)}>{busy ? 'Remboursement…' : `Récupérer ${usdc(escrow.amount)}`}</button>}
+        {contest.status === 'open' && <button onClick={() => close.mutate()} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={{ background: 'rgba(15,28,53,0.07)', color: 'var(--ink-2)' }}>Close to new entries</button>}
+        {unlocked && escrow.amount > 0 && <button onClick={() => void refund()} disabled={busy || !gate.ok} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold" style={primaryBtn(busy || !gate.ok)}>{busy ? 'Refunding…' : `Recover ${usdc(escrow.amount)}`}</button>}
       </div>
       {isLoading ? <Loading /> : error ? <ErrorBox message={error.message} /> : (data?.items.length ?? 0) === 0
-        ? <p className="text-sm" style={{ color: 'var(--muted)' }}>Aucune participation pour l'instant.</p>
+        ? <p className="text-sm" style={{ color: 'var(--muted)' }}>No entries yet.</p>
         : <div className="space-y-2">{data?.items.map((e) => <EntryRow key={e.id} contest={contest} e={e} free={free} />)}</div>}
     </div>
   )
@@ -130,7 +130,7 @@ export default function MyContests() {
   const { data, isLoading, error } = useQuery({ queryKey: ['my-contests'], queryFn: () => api<{ items: MyContest[] }>('/me/contests') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Vous n'avez créé aucun concours" /></Card>
+  if (!data?.items.length) return <Card><Empty title="You have not created any contest" /></Card>
   return (
     <div className="space-y-3">
       {data.items.map((k) => (
@@ -138,7 +138,7 @@ export default function MyContests() {
           <button className="w-full text-left p-4 flex items-center gap-3" aria-expanded={open === k.id} onClick={() => setOpen(open === k.id ? null : k.id)}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{k.title}</span><Pill status={k.status} /></div>
-              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Cagnotte {usdc(k.prizePool)} · {k.entries} participation(s) · fin {fmtDate(k.endsAt)}</div>
+              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Prize pool {usdc(k.prizePool)} · {k.entries} entries · ends {fmtDate(k.endsAt)}</div>
             </div>
             <ChevronDown size={16} style={{ color: 'var(--subtle)', transform: open === k.id ? 'rotate(180deg)' : 'none' }} />
           </button>

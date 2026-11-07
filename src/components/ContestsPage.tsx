@@ -27,19 +27,19 @@ function EntryForm({ contest }: { contest: Contest }) {
   const mut = useMutation({
     mutationFn: async () => api(`/contests/${contest.id}/entries`, { body: await buildProof(proof) }),
     onSuccess: async () => {
-      toast.success('Participation envoyée.')
+      toast.success('Entry submitted.')
       setProof(emptyProof)
       await Promise.all(['contests', 'my-entries'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Envoi impossible.'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not send.'),
   })
   const noWallet = !user?.walletAddress
   return (
     <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-      {noWallet && <ErrorBox message="Liez un portefeuille à votre compte (Paramètres) pour recevoir un prix." />}
+      {noWallet && <ErrorBox message="Link a wallet to your account (Settings) to receive a prize." />}
       <ProofFields value={proof} onChange={setProof} />
       <button onClick={() => mut.mutate()} disabled={mut.isPending || noWallet || empty} className="w-full min-h-[48px] rounded-xl font-semibold text-sm" style={primaryBtn(mut.isPending || noWallet || empty)}>
-        {mut.isPending ? 'Envoi…' : 'Participer'}
+        {mut.isPending ? 'Sending…' : 'Enter'}
       </button>
     </div>
   )
@@ -61,8 +61,8 @@ function ContestCard({ c }: { c: Contest }) {
           <p className="text-xs mt-1 line-clamp-2 text-pretty" style={{ color: 'var(--muted)' }}>{c.description}</p>
           <div className="flex items-center gap-3 mt-2 text-xs flex-wrap" style={{ color: 'var(--subtle)' }}>
             <span className="flex items-center gap-1"><Users size={12} /> {c.entries}/{c.slots}</span>
-            <span className="flex items-center gap-1"><Clock size={12} /> fin le {fmtDate(c.endsAt)}</span>
-            <span>par @{c.creator}</span>
+            <span className="flex items-center gap-1"><Clock size={12} /> ends {fmtDate(c.endsAt)}</span>
+            <span>by @{c.creator}</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -77,7 +77,7 @@ function ContestCard({ c }: { c: Contest }) {
             {c.prizes.map((p) => <span key={p.place} className="text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: 'rgba(26,128,71,0.10)', color: 'var(--success)' }}>{p.place} : {usdc(p.amount)}</span>)}
           </div>
           {!mine && !c.myStatus && !full && <EntryForm contest={c} />}
-          {!mine && !c.myStatus && full && <p className="text-sm" style={{ color: 'var(--muted)' }}>Toutes les places sont prises.</p>}
+          {!mine && !c.myStatus && full && <p className="text-sm" style={{ color: 'var(--muted)' }}>All places are taken.</p>}
           {!mine && <ReportButton type="contest" id={c.id} />}
         </div>
       )}
@@ -89,7 +89,7 @@ function OpenContests() {
   const { data, isLoading, error } = useQuery({ queryKey: ['contests'], queryFn: () => api<{ items: Contest[] }>('/contests') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Aucun concours en cours" sub="Créez le premier avec le bouton en haut de la page." /></Card>
+  if (!data?.items.length) return <Card><Empty title="No contests running" sub="Create the first one with the button at the top of the page." /></Card>
   return <div className="space-y-3">{data.items.map((c) => <ContestCard key={c.id} c={c} />)}</div>
 }
 
@@ -97,7 +97,7 @@ function MyEntries() {
   const { data, isLoading, error } = useQuery({ queryKey: ['my-entries'], queryFn: () => api<{ items: MyEntry[] }>('/me/entries') })
   if (isLoading) return <Loading />
   if (error) return <ErrorBox message={error.message} />
-  if (!data?.items.length) return <Card><Empty title="Aucune participation" /></Card>
+  if (!data?.items.length) return <Card><Empty title="No entries" /></Card>
   return (
     <div className="space-y-3">
       {data.items.map((e) => (
@@ -105,8 +105,8 @@ function MyEntries() {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{e.title}</span><Pill status={e.status} /></div>
-              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Envoyée le {fmtDate(e.createdAt)}</div>
-              {e.payTx && <TxLink hash={e.payTx} label="Voir le paiement" />}
+              <div className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Sent {fmtDate(e.createdAt)}</div>
+              {e.payTx && <TxLink hash={e.payTx} label="View payment" />}
             </div>
             {e.prizeAmount && <span className="font-bold tabular-nums text-sm" style={{ color: 'var(--success)' }}>{e.prizePlace} · {usdc(e.prizeAmount)}</span>}
           </div>
@@ -121,10 +121,10 @@ export default function ContestsPage({ initialTab }: { initialTab?: string }) {
   const [creating, setCreating] = useState(false)
   return (
     <div className="space-y-4">
-      <PageTitle title="Concours" sub="Participez pour gagner des prix en USDC, ou lancez le vôtre."
-        action={!creating && <button onClick={() => { setCreating(true); setTab('mine') }} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5 flex-shrink-0" style={primaryBtn()}><Plus size={16} /> Créer</button>} />
+      <PageTitle title="Contests" sub="Enter to win USDC prizes, or launch your own."
+        action={!creating && <button onClick={() => { setCreating(true); setTab('mine') }} className="min-h-[44px] px-4 rounded-xl text-sm font-semibold flex items-center gap-1.5 flex-shrink-0" style={primaryBtn()}><Plus size={16} /> Create</button>} />
       {creating && <ContestCreateForm onClose={() => setCreating(false)} />}
-      <Tabs<Tab> value={tab} onChange={setTab} tabs={[{ id: 'open', label: 'En cours' }, { id: 'entries', label: 'Mes participations' }, { id: 'mine', label: 'Mes concours' }]} />
+      <Tabs<Tab> value={tab} onChange={setTab} tabs={[{ id: 'open', label: 'Running' }, { id: 'entries', label: 'My entries' }, { id: 'mine', label: 'My contests' }]} />
       {tab === 'open' && <OpenContests />}
       {tab === 'entries' && <MyEntries />}
       {tab === 'mine' && <MyContests />}

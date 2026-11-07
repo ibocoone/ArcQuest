@@ -43,10 +43,10 @@ export function route(method: string, path: string, auth: Auth, handler: Handler
 // ── Validation ────────────────────────────────────────────────────────────────
 
 export function str(v: unknown, min: number, max: number, field: string): string {
-  if (typeof v !== 'string') throw new HttpError(400, `${field} est obligatoire.`)
+  if (typeof v !== 'string') throw new HttpError(400, `${field} is required.`)
   const s = v.trim()
-  if (s.length < min) throw new HttpError(400, `${field} est trop court (min. ${min}).`)
-  if (s.length > max) throw new HttpError(400, `${field} est trop long (max. ${max}).`)
+  if (s.length < min) throw new HttpError(400, `${field} is too short (min. ${min}).`)
+  if (s.length > max) throw new HttpError(400, `${field} is too long (max. ${max}).`)
   return s
 }
 
@@ -62,24 +62,24 @@ export function httpUrl(v: unknown, field: string): string | null {
     const u = new URL(s)
     if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error()
     return u.toString()
-  } catch { throw new HttpError(400, `${field} doit être un lien http(s) valide.`) }
+  } catch { throw new HttpError(400, `${field} must be a valid http(s) link.`) }
 }
 
 export function amount(v: unknown, field: string): string {
   const s = typeof v === 'number' ? String(v) : typeof v === 'string' ? v.trim() : ''
-  if (!/^\d{1,12}(\.\d{1,6})?$/.test(s) || Number(s) <= 0) throw new HttpError(400, `${field} invalide (6 décimales max).`)
+  if (!/^\d{1,12}(\.\d{1,6})?$/.test(s) || Number(s) <= 0) throw new HttpError(400, `${field} is invalid (6 decimals max).`)
   return s
 }
 
 export function uuid(v: unknown, field: string): string {
   const s = str(v, 36, 36, field)
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) throw new HttpError(400, `${field} invalide.`)
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) throw new HttpError(400, `${field} is invalid.`)
   return s.toLowerCase()
 }
 
 export function txHash(v: unknown): `0x${string}` {
-  const s = str(v, 66, 66, 'Hash de transaction')
-  if (!/^0x[0-9a-fA-F]{64}$/.test(s)) throw new HttpError(400, 'Hash de transaction invalide.')
+  const s = str(v, 66, 66, 'Transaction hash')
+  if (!/^0x[0-9a-fA-F]{64}$/.test(s)) throw new HttpError(400, 'Invalid transaction hash.')
   return s.toLowerCase() as `0x${string}`
 }
 
@@ -89,7 +89,7 @@ const hits = new Map<string, number[]>()
 export function rateLimit(key: string, max: number, windowMs: number): void {
   const now = Date.now()
   const list = (hits.get(key) ?? []).filter((t) => now - t < windowMs)
-  if (list.length >= max) throw new HttpError(429, 'Trop de tentatives. Réessayez dans quelques minutes.')
+  if (list.length >= max) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.')
   list.push(now)
   hits.set(key, list)
 }
@@ -150,17 +150,17 @@ export async function handle(req: Request): Promise<Response> {
 
       const user = await sessionUser(req)
       if (r.auth !== 'none') {
-        if (!user) throw new HttpError(401, 'Connexion requise.')
-        if (user.status === 'suspended') throw new HttpError(403, 'Ce compte est suspendu.')
-        if (r.auth === 'admin' && user.role !== 'admin') throw new HttpError(403, 'Accès réservé aux administrateurs.')
+        if (!user) throw new HttpError(401, 'Sign-in required.')
+        if (user.status === 'suspended') throw new HttpError(403, 'This account is suspended.')
+        if (r.auth === 'admin' && user.role !== 'admin') throw new HttpError(403, 'Administrators only.')
       }
       const ctx: Ctx = {
         req, url, params, user, headers,
         json: async () => {
           const ct = req.headers.get('content-type') ?? ''
-          if (!ct.includes('application/json')) throw new HttpError(415, 'Format JSON requis.')
-          const body: unknown = await req.json().catch(() => { throw new HttpError(400, 'JSON invalide.') })
-          if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'Corps invalide.')
+          if (!ct.includes('application/json')) throw new HttpError(415, 'JSON format required.')
+          const body: unknown = await req.json().catch(() => { throw new HttpError(400, 'Invalid JSON.') })
+          if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError(400, 'Invalid request body.')
           return body as Record<string, unknown>
         },
         setCookie: (value, maxAgeSec) => {
@@ -171,11 +171,11 @@ export async function handle(req: Request): Promise<Response> {
       if (out instanceof Response) return out
       return Response.json(out ?? { ok: true }, { headers })
     }
-    throw new HttpError(404, 'Introuvable.')
+    throw new HttpError(404, 'Not found.')
   } catch (err) {
     if (err instanceof HttpError) return Response.json({ error: err.message }, { status: err.status, headers })
     console.error('[server]', err instanceof Error ? err.message : err)
-    return Response.json({ error: 'Erreur interne du serveur.' }, { status: 500, headers })
+    return Response.json({ error: 'Internal server error.' }, { status: 500, headers })
   }
 }
 
