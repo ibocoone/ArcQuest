@@ -1,4 +1,5 @@
 import { migrate } from './db'
+import { startReconcile } from './submissions'
 import { handle } from './http'
 import { hasStatic, serveStatic } from './static'
 import './routes/auth'
@@ -9,6 +10,7 @@ import './routes/admin'
 import './routes/adminData'
 
 await migrate()
+startReconcile()
 
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001)
 Bun.serve({

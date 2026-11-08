@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { Amount, parseAmount, usdcDecimalsFor } from '@/onchain-money'
-import { ARC_TESTNET_ID, VAULT_ADDRESS, vaultAbi } from '@/contracts/vault'
+import { ARC_TESTNET_ID, VAULT_ADDRESS, jobAbi, vaultAbi } from '@/contracts/vault'
 
 /** Identifiant onchain d'une tâche ou d'un concours à partir de son id applicatif. */
 export function taskIdOf(id: string): `0x${string}` {
@@ -123,7 +123,31 @@ export function useVaultActions() {
     }))
   }
 
-  return { deposit, withdraw, fundTask, releaseReward, refundTask }
+  // ── Tâches protégées : chaque action attend la confirmation puis renvoie le hash ──
+  const job = async <F extends 'createJob' | 'submitClaim' | 'approveClaim' | 'rejectClaim' | 'finalizeClaim' | 'disputeClaim' | 'releaseRejected' | 'resolveDispute' | 'expireDispute' | 'reclaimJob'>(
+    functionName: F, args: unknown[],
+  ) => {
+    const { vault } = ready()
+    const request = { address: vault, abi: jobAbi, functionName, args, chainId: ARC_TESTNET_ID } as unknown as Parameters<typeof writeContractAsync>[0]
+    const hash = await writeContractAsync(request)
+    return confirm(hash)
+  }
+  const createJob = (appId: string, rewardRaw: bigint, slots: number, deadline: number, reviewDays: number) =>
+    job('createJob', [taskIdOf(appId), rewardRaw, slots, BigInt(deadline), reviewDays * 86_400])
+  const submitClaim = (appId: string, expiry: number, signature: `0x${string}`) => job('submitClaim', [taskIdOf(appId), BigInt(expiry), signature])
+  const approveClaim = (appId: string, worker: `0x${string}`) => job('approveClaim', [taskIdOf(appId), worker])
+  const rejectClaim = (appId: string, worker: `0x${string}`) => job('rejectClaim', [taskIdOf(appId), worker])
+  const finalizeClaim = (appId: string, worker: `0x${string}`) => job('finalizeClaim', [taskIdOf(appId), worker])
+  const disputeClaim = (appId: string) => job('disputeClaim', [taskIdOf(appId)])
+  const releaseRejected = (appId: string, worker: `0x${string}`) => job('releaseRejected', [taskIdOf(appId), worker])
+  const resolveDispute = (appId: string, worker: `0x${string}`, payWorker: boolean) => job('resolveDispute', [taskIdOf(appId), worker, payWorker])
+  const expireDispute = (appId: string, worker: `0x${string}`) => job('expireDispute', [taskIdOf(appId), worker])
+  const reclaimJob = (appId: string) => job('reclaimJob', [taskIdOf(appId)])
+
+  return {
+    deposit, withdraw, fundTask, releaseReward, refundTask,
+    createJob, submitClaim, approveClaim, rejectClaim, finalizeClaim, disputeClaim, releaseRejected, resolveDispute, expireDispute, reclaimJob,
+  }
 }
 
 /** Remaining reserve et date de déverrouillage d'une tâche/concours, lues dans le contrat. */
@@ -143,6 +167,35 @@ export function useEscrow(appId: string) {
     refundableAfter: data ? Number(data[1]) : 0,
     refetch,
   }
+}
+
+/** Fonds restants d'une tâche protégée (libres et verrouillés), lus dans le contrat. */
+export function useJob(appId: string) {
+  const { data, refetch } = useReadContract({
+    address: VAULT_ADDRESS,
+    abi: jobAbi,
+    functionName: 'jobs',
+    args: [taskIdOf(appId)],
+    chainId: ARC_TESTNET_ID,
+    query: { enabled: !!VAULT_ADDRESS, refetchInterval: 30_000 },
+  })
+  const dec = usdcDecimalsFor(ARC_TESTNET_ID)
+  const num = (raw: bigint) => Number(Amount.fromRaw(raw, dec).toFixed(6))
+  return {
+    escrow: data ? num(data[6]) : 0,
+    locked: data ? num(data[7]) : 0,
+    deadline: data ? Number(data[1]) : 0,
+    exists: !!data && data[0] !== '0x0000000000000000000000000000000000000000',
+    refetch,
+  }
+}
+
+/** Adresse de l'arbitre du contrat. */
+export function useArbiter(): `0x${string}` | undefined {
+  const { data } = useReadContract({
+    address: VAULT_ADDRESS, abi: jobAbi, functionName: 'arbiter', chainId: ARC_TESTNET_ID, query: { enabled: !!VAULT_ADDRESS },
+  })
+  return data
 }
 
 /** Convertit un montant décimal en unités USDC (6 décimales). */

@@ -30,7 +30,7 @@ route('GET', '/me/stats', 'user', async (c) => {
 route('GET', '/me/earnings', 'user', async (c) => {
   const id = (c.user as AuthUser).id
   const list = await rows<Record<string, unknown>>(sql`
-    SELECT 'task' AS kind, t.title, t.reward AS amount, s.pay_tx AS tx, s.reviewed_at AS at
+    SELECT 'task' AS kind, t.title, t.reward AS amount, s.pay_tx AS tx, coalesce(s.status_at, s.reviewed_at) AS at
       FROM submissions s JOIN tasks t ON t.id = s.task_id WHERE s.worker_id = ${id} AND s.status = 'approved'
     UNION ALL
     SELECT 'contest', k.title || ' (' || e.prize_place || ')', e.prize_amount, e.pay_tx, e.created_at

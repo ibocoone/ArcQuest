@@ -10,11 +10,12 @@ import EarningsPage from './components/EarningsPage'
 import ReferralsPage from './components/ReferralsPage'
 import ContestsPage from './components/ContestsPage'
 import SettingsPage from './components/SettingsPage'
+import SupportPage from './components/SupportPage'
 import AdminPage from './components/AdminPage'
 import { Loading } from './ui'
 
 type Legal = 'terms' | 'privacy'
-const PAGES: Page[] = ['dashboard', 'jobs', 'wallet', 'earnings', 'referrals', 'contests', 'settings', 'admin']
+const PAGES: Page[] = ['dashboard', 'jobs', 'wallet', 'earnings', 'referrals', 'contests', 'support', 'settings', 'admin']
 
 function AppShell() {
   const { user, isLoading } = useAuth()
@@ -39,6 +40,7 @@ function AppShell() {
       case 'wallet': return <WalletPage initialTab={tab} />
       case 'earnings': return <EarningsPage onNavigate={navigate} />
       case 'referrals': return <ReferralsPage />
+      case 'support': return <SupportPage />
       case 'settings': return <SettingsPage />
       case 'admin': return user.role === 'admin' ? <AdminPage /> : <DashboardHome onNavigate={navigate} />
       default: return <DashboardHome onNavigate={navigate} />

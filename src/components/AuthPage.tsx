@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { api, walletMessage } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { inputStyle } from '../ui'
+import { SUPPORT } from '../support'
 
 type Method = 'email' | 'wallet'
 type Mode = 'login' | 'register'
@@ -145,6 +146,11 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
             By continuing, you accept the{' '}
             <button type="button" className="underline" onClick={() => onOpenLegal('terms')}>terms of use</button> and the{' '}
             <button type="button" className="underline" onClick={() => onOpenLegal('privacy')}>privacy policy</button>.
+          </p>
+          <p className="text-xs text-center" style={{ color: '#8a849c' }}>
+            Need help? Contact support on{' '}
+            <a className="underline" href={SUPPORT.telegram.url} target="_blank" rel="noopener noreferrer">Telegram</a> or{' '}
+            <a className="underline" href={SUPPORT.x.url} target="_blank" rel="noopener noreferrer">X</a>.
           </p>
         </div>
 

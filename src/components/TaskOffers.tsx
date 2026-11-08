@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, ExternalLink, Search, Users } from 'lucide-react'
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { TokenUSDC } from '@web3icons/react'
 import { toast } from 'sonner'
 import { api, fmtDate, usdc } from '../api'
 import { useAuth } from '../context/AuthContext'
+import { useTxGate, useVaultActions } from '../hooks/useVault'
 import { Card, Empty, ErrorBox, Loading, Pill, inputStyle, primaryBtn } from '../ui'
 import ProofFields, { buildProof, emptyProof, type ProofValue } from './ProofFields'
 import ReportButton from './ReportButton'
@@ -17,32 +18,60 @@ export const TASK_TYPES = [
 interface Task {
   id: string; title: string; description: string; instructions?: string; type: string; platform: string | null
   url: string | null; reward: string; slots: number; taken: number; deadline: string; creator: string
-  creatorId: string; myStatus: string | null
+  creatorId: string; myStatus: string | null; reviewDays: number
 }
+
+const STEP_TEXT = {
+  permit: 'Checking your submission…',
+  wallet: 'Confirm in your wallet…',
+  chain: 'Waiting for confirmation…',
+} as const
 
 function SubmitForm({ task }: { task: Task }) {
   const qc = useQueryClient()
   const { user } = useAuth()
+  const gate = useTxGate(user?.walletAddress)
+  const { submitClaim } = useVaultActions()
   const [proof, setProof] = useState<ProofValue>(emptyProof)
-  const mut = useMutation({
-    mutationFn: async () => api(`/tasks/${task.id}/submissions`, { body: await buildProof(proof) }),
-    onSuccess: async () => {
-      toast.success("Submission sent. The creator will review it.")
+  const [step, setStep] = useState<keyof typeof STEP_TEXT | null>(null)
+
+  const send = async () => {
+    setStep('permit')
+    try {
+      // 1) le serveur vérifie la preuve et remet une autorisation signée
+      const permit = await api<{ submissionId: string; expiry: number; signature: `0x${string}` }>(`/tasks/${task.id}/claim-permit`, { body: await buildProof(proof) })
+      // 2) le travailleur enregistre sa soumission dans le contrat (petits frais de réseau)
+      setStep('wallet')
+      await submitClaim(task.id, permit.expiry, permit.signature)
+      // 3) le serveur relit l'état du contrat
+      setStep('chain')
+      await api(`/submissions/${permit.submissionId}/sync`, { body: {} })
+      toast.success(`Submission sent. The creator has ${task.reviewDays} day${task.reviewDays > 1 ? 's' : ''} to review it, otherwise you are paid automatically.`)
       setProof(emptyProof)
       await Promise.all(['tasks', 'my-submissions', 'stats'].map((k) => qc.invalidateQueries({ queryKey: [k] })))
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Could not send.'),
-  })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : ''
+      toast.error(/rejected|denied/i.test(msg) ? 'Transaction cancelled. Your proof is saved: tap Send again to continue.' : msg || 'Could not send.')
+    } finally {
+      setStep(null)
+    }
+  }
+
   const noWallet = !user?.walletAddress
   const empty = !proof.url.trim() && !proof.file
+  const busy = step !== null
+  const blocked = busy || noWallet || empty || !gate.ok
 
   return (
     <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
-      {noWallet && <ErrorBox message="Link a wallet to your account (Settings) to receive your payment." />}
+      {noWallet ? <ErrorBox message="Link a wallet to your account (Settings) to receive your payment." /> : gate.message && <ErrorBox message={gate.message} />}
       <ProofFields value={proof} onChange={setProof} />
-      <button onClick={() => mut.mutate()} disabled={mut.isPending || noWallet || empty}
-        className="w-full min-h-[48px] rounded-xl font-semibold text-sm" style={primaryBtn(mut.isPending || noWallet || empty)}>
-        {mut.isPending ? 'Sending…' : 'Send my proof'}
+      <p className="text-xs text-pretty" style={{ color: 'var(--muted)' }}>
+        Your submission is registered in the contract (small network fee). The creator has {task.reviewDays} day{task.reviewDays > 1 ? 's' : ''} to approve or reject it. If they do nothing, you are paid automatically.
+      </p>
+      <button onClick={() => void send()} disabled={blocked}
+        className="w-full min-h-[48px] rounded-xl font-semibold text-sm" style={primaryBtn(blocked)}>
+        {step ? STEP_TEXT[step] : 'Send my proof'}
       </button>
     </div>
   )
@@ -53,7 +82,7 @@ function TaskCard({ task }: { task: Task }) {
   const [open, setOpen] = useState(false)
   const left = task.slots - task.taken
   const mine = task.creatorId === user?.id
-  const canSubmit = !mine && !task.myStatus && left > 0
+  const canSubmit = !mine && (!task.myStatus || task.myStatus === 'draft') && left > 0
 
   return (
     <Card>
@@ -61,7 +90,7 @@ function TaskCard({ task }: { task: Task }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-sm" style={{ color: 'var(--ink)' }}>{task.title}</span>
-            {task.myStatus && <Pill status={task.myStatus} />}
+            {task.myStatus && task.myStatus !== 'draft' && <Pill status={task.myStatus} />}
             {mine && <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(26,47,110,0.08)', color: 'var(--accent)' }}>Your task</span>}
           </div>
           <p className="text-xs mt-1 line-clamp-2 text-pretty" style={{ color: 'var(--muted)' }}>{task.description}</p>

@@ -18,10 +18,10 @@ export default function TaskCreateForm({ onClose }: { onClose: () => void }) {
   const { user } = useAuth()
   const gate = useTxGate(user?.walletAddress)
   const { balance } = useVaultBalance()
-  const { fundTask } = useVaultActions()
+  const { createJob } = useVaultActions()
   const [busy, setBusy] = useState(false)
   const [retry, setRetry] = useState<Record<string, unknown> | null>(null)
-  const [f, setF] = useState({ title: '', description: '', instructions: '', type: 'social', platform: '', url: '', reward: '', slots: '', deadline: inDays(7) })
+  const [f, setF] = useState({ title: '', description: '', instructions: '', type: 'social', platform: '', url: '', reward: '', slots: '', deadline: inDays(7), reviewDays: '3' })
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }))
 
   const rewardOk = /^\d+(\.\d{1,6})?$/.test(f.reward) && Number(f.reward) > 0
@@ -56,13 +56,11 @@ export default function TaskCreateForm({ onClose }: { onClose: () => void }) {
     if (!enough) return void toast.error(`Insufficient balance: you need $${cost.toFixed(2)}, you have $${balance.toFixed(2)}. Make a deposit first.`)
 
     const id = crypto.randomUUID()
-    const now = Math.floor(Date.now() / 1000)
-    // fonds verrouillés jusqu'à 7 jours après la date limite (1 an maximum)
-    const refundableAfter = Math.min(Math.floor(deadline.getTime() / 1000) + 7 * DAY, now + 360 * DAY)
+    const deadlineSec = Math.floor(deadline.getTime() / 1000)
     setBusy(true)
     let hash: string
     try {
-      hash = await fundTask(id, costRaw, refundableAfter)
+      hash = await createJob(id, toRawUsdc(f.reward), slotsN, deadlineSec, Number(f.reviewDays))
     } catch (e) {
       setBusy(false)
       const msg = e instanceof Error ? e.message : ''
@@ -71,7 +69,7 @@ export default function TaskCreateForm({ onClose }: { onClose: () => void }) {
     const payload = {
       id, title: f.title.trim(), description: f.description.trim(), instructions: f.instructions.trim(), type: f.type,
       platform: f.platform.trim() || undefined, url: f.url.trim() || undefined, reward: f.reward, slots: slotsN,
-      deadline: deadline.toISOString(), fundTx: hash,
+      deadline: deadline.toISOString(), reviewDays: Number(f.reviewDays), fundTx: hash,
     }
     try { await register(payload) } catch (e) {
       setRetry(payload)
@@ -102,7 +100,16 @@ export default function TaskCreateForm({ onClose }: { onClose: () => void }) {
           <div><Label>Reward (USDC) *</Label><input style={inputStyle} inputMode="decimal" value={f.reward} onChange={(e) => set('reward', e.target.value)} placeholder="0.50" /></div>
           <div><Label>Places *</Label><input style={inputStyle} inputMode="numeric" value={f.slots} onChange={(e) => set('slots', e.target.value)} placeholder="10" /></div>
         </div>
-        <div><Label>Deadline *</Label><input type="datetime-local" style={inputStyle} value={f.deadline} onChange={(e) => set('deadline', e.target.value)} /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>Deadline *</Label><input type="datetime-local" style={inputStyle} value={f.deadline} onChange={(e) => set('deadline', e.target.value)} /></div>
+          <div><Label>Review time</Label>
+            <select style={inputStyle} value={f.reviewDays} onChange={(e) => set('reviewDays', e.target.value)}>
+              {Array.from({ length: 14 }, (_, i) => i + 1).map((d) => <option key={d} value={d}>{d} day{d > 1 ? 's' : ''}</option>)}
+            </select></div>
+        </div>
+        <p className="text-xs" style={{ color: 'var(--muted)' }}>
+          After a worker submits, you have this long to approve or reject. If you do nothing, the worker is paid automatically from the funds you reserved.
+        </p>
 
         {costRaw > 0n && (
           <div className="rounded-xl px-4 py-3 flex items-center gap-3 text-sm" style={{ background: enough ? 'rgba(26,128,71,0.07)' : 'rgba(186,43,76,0.07)' }}>

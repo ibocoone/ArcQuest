@@ -8,10 +8,10 @@ Built with [Arc Studio](https://studio.arc.io)
 
 - Accounts with email and password, or with a wallet signature. Server-side sessions.
 - Tasks and contests shared between all users, with search, filters and pagination.
-- One submission per person per task, places counted down, deadline, required proof (link or screenshot), reason given for any rejection.
-- Approval and payment by the creator, verified on the blockchain before being recorded.
+- One submission per person per task, places counted down, deadline, required proof (link or screenshot), reason given for any rejection. A worker registers the submission in the contract with a permit signed by the server.
+- Worker protection: the creator has 1 to 14 days (default 3) to approve or reject. If they do nothing, the worker is paid automatically. A rejection can be disputed within 7 days; an arbiter wallet then pays the worker or refunds the creator. With no decision after 14 days, the reward is split 50/50.
 - Deposit, withdrawal and recovery of unused funds; wallet history recorded by the server after verifying each transaction onchain.
-- In-app notifications, reports, and an admin area (finances, moderation, accounts, payments, action log).
+- In-app notifications, reports, a support page (Telegram and X), and an admin area (finances, disputes, moderation, accounts, payments, action log).
 - Terms of Use and Privacy Policy pages (templates to be reviewed by a lawyer).
 
 ## Tech stack
@@ -39,26 +39,28 @@ bunx vite build --outDir web --emptyOutDir   # production build of the app
 - `ADMIN_EMAILS`, `ADMIN_WALLETS`: comma-separated emails and wallet addresses that get the administrator role.
 - `COOKIE_SECURE`: `true` in production over HTTPS.
 - `VITE_VAULT_ADDRESS`: address of the ArcQuestVault contract on Arc Testnet.
+- `CLAIM_SIGNER_PRIVATE_KEY`: private key of the server's claim signer (secret, server only). The contract only accepts submissions authorised by this key. It can never move funds. If it leaks, the arbiter rotates it with `setClaimSigner`.
 - `VITE_VAULT_DEPLOY_BLOCK`: deployment block of the contract.
 - `RPC_URL_Arc_Testnet`: optional RPC provider URL used by the server for its onchain checks. Never put it in a `VITE_` variable.
 - `RPC_PROXY_BASE_URL`, `RPC_PROXY_TOKEN`, `RPC_PROXY_CHAINS`: provided by Arc Studio, optional elsewhere (the public RPC is used otherwise).
 
 ## Contract
 
-`contracts/ArcQuestVault.sol`: a USDC vault with no administrator and no fees. Each user deposits, withdraws and reserves money for a task or contest. Only the creator can pay workers out of the money they reserved, and can recover what is left after the lock delay.
+`contracts/ArcQuestVault.sol`: a USDC vault with no owner, no fees and no upgrade path. Users deposit and withdraw; creators fund tasks (`createJob`) whose workers register claims (`submitClaim`, with a server-signed EIP-712 permit), and the creator approves or rejects them. Anyone can finalize a claim once the review time is over. The arbiter (constructor argument, replaceable in two steps) can only pay the worker or refund the creator on a disputed rejection, and only within 14 days. Contests use the older discretionary pool (`fundTask`, `releaseReward`). Operational note: if the USDC issuer freezes the contract address, withdrawals would fail for everyone; monitor issuer restrictions and stop creating new tasks during a freeze.
 
 ## Current limits
 
 - Notifications are in-app only (no emails).
 - Referrals are a counter: no reward is paid.
 - No platform fee.
+- Workers pay a small network fee to register a submission and to collect payments. Gas sponsorship is not implemented.
 - Wallet history only includes operations made after the history feature was added.
 
 ## Tests
 
 `bun run test:server` runs the API tests (accounts, anti-cheating rules, proof files, moderation, administration) and checks that every screen receives all the fields it expects. It needs the server running (`bun run server`).
 
-The full flow with real transactions on Arc Testnet (deposit, task, submission, payment, withdrawal, contest) runs with `E2E_KEYS=/path/keys.json bun run test:server`, where the file holds two throwaway wallet keys `{"creator": "0x…", "worker": "0x…"}`, the first one funded with test USDC. Never use a key that holds real value.
+The full flow with real transactions on Arc Testnet (deposit, task, signed submission, approval, rejection, dispute, contest) runs with `E2E_KEYS=/path/keys.json bun run test:server`, where the file holds two throwaway wallet keys `{"creator": "0x…", "worker": "0x…"}`, the first one funded with test USDC. Never use a key that holds real value.
 
 ## Deployment
 
@@ -69,6 +71,6 @@ Two free services are enough:
 
 Before pushing an interface change to GitHub, rebuild the app with `bunx vite build --outDir web --emptyOutDir`: the `web` folder is part of the repository and Render copies it as is.
 
-Render service variables: `DATABASE_URL` (Neon address), `ADMIN_WALLETS` or `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (already in `render.yaml`).
+Render service variables: `DATABASE_URL` (Neon address), `CLAIM_SIGNER_PRIVATE_KEY`, `ADMIN_WALLETS` or `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (already in `render.yaml`).
 
 On the free plan, Render puts the service to sleep after a while without traffic: the next request is slower.

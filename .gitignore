@@ -3,3 +3,5 @@
 server/uploads/
 node_modules/
 .circle/
+
+cache/

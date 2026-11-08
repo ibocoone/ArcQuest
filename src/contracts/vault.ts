@@ -1,4 +1,4 @@
-import { isAddress } from 'viem'
+import { isAddress, parseAbi } from 'viem'
 
 export const ARC_TESTNET_ID = 5042002
 
@@ -20,3 +20,24 @@ export const vaultAbi = [
   { type: 'function', name: 'refundTask', stateMutability: 'nonpayable',
     inputs: [{ name: 'taskId', type: 'bytes32' }, { name: 'amount', type: 'uint256' }], outputs: [] },
 ] as const
+
+/** Fonctions du protocole de tâches protégées (création, soumission, relecture, litige). */
+export const jobAbi = parseAbi([
+  'function createJob(bytes32 jobId, uint128 reward, uint32 slots, uint64 deadline, uint32 reviewPeriod)',
+  'function submitClaim(bytes32 jobId, uint64 expiry, bytes signature)',
+  'function approveClaim(bytes32 jobId, address worker)',
+  'function rejectClaim(bytes32 jobId, address worker)',
+  'function finalizeClaim(bytes32 jobId, address worker)',
+  'function disputeClaim(bytes32 jobId)',
+  'function releaseRejected(bytes32 jobId, address worker)',
+  'function resolveDispute(bytes32 jobId, address worker, bool payWorker)',
+  'function expireDispute(bytes32 jobId, address worker)',
+  'function reclaimJob(bytes32 jobId)',
+  'function jobs(bytes32) view returns (address funder, uint64 deadline, uint32 reviewPeriod, uint32 slots, uint32 active, uint128 reward, uint256 escrow, uint256 locked)',
+  'function claims(bytes32, address) view returns (uint8 status, uint64 at)',
+  'function arbiter() view returns (address)',
+])
+
+/** Délais fixés par le contrat. */
+export const DISPUTE_WINDOW_SECONDS = 7 * 86_400
+export const ARBITER_TIMEOUT_SECONDS = 14 * 86_400

@@ -59,9 +59,9 @@ route('POST', '/contests', 'user', async (c) => {
   const hash = txHash(b.fundTx)
   await verifyFunding(hash, id, me.wallet_address, poolRaw)
   try {
-    await sql`INSERT INTO contests (id, creator_id, title, description, prompt, type, ends_at, slots, prizes, prize_pool, fund_tx)
+    await sql`INSERT INTO contests (id, creator_id, title, description, prompt, type, ends_at, slots, prizes, prize_pool, fund_tx, protocol)
       VALUES (${id}, ${me.id}, ${str(b.title, 3, 120, 'Title')}, ${str(b.description, 10, 1000, 'Description')}, ${str(b.prompt, 10, 2000, 'Instructions')},
-              ${type}, ${endsAt.toISOString()}, ${slots}, ${JSON.stringify(prizes)}::jsonb, ${formatUnits(poolRaw, 6)}, ${hash})`
+              ${type}, ${endsAt.toISOString()}, ${slots}, ${JSON.stringify(prizes)}::jsonb, ${formatUnits(poolRaw, 6)}, ${hash}, 2)`
   } catch (e) {
     if (isDup(e)) throw new HttpError(409, 'This contest or transaction is already registered.')
     throw e

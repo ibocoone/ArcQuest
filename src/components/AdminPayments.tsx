@@ -3,7 +3,7 @@ import { Download } from 'lucide-react'
 import { api, fmtDate, usdc } from '../api'
 import { Card, Empty, ErrorBox, Loading, TxLink } from '../ui'
 
-interface Payment { kind: 'task' | 'contest'; title: string; worker: string; creator: string; amount: string; tx: string; at: string }
+interface Payment { kind: 'task' | 'contest'; title: string; worker: string; creator: string; amount: string; tx: string | null; at: string }
 
 /** Télécharge un fichier CSV construit dans le navigateur. Les cellules commençant par = + - @ sont neutralisées. */
 export function downloadCsv(name: string, header: string[], lines: string[][]) {
@@ -27,7 +27,7 @@ export default function AdminPayments() {
   if (!data?.items.length) return <Card><Empty title="No confirmed payments" sub="Payments appear here as soon as a creator approves a submission." /></Card>
 
   const exportCsv = () => downloadCsv('payments.csv', ['Date', 'Type', 'Title', 'Payer', 'Recipient', 'Amount (USDC)', 'Transaction'],
-    data.items.map((p) => [p.at, p.kind === 'task' ? 'Task' : 'Contests', p.title, p.creator, p.worker, p.amount, p.tx]))
+    data.items.map((p) => [p.at, p.kind === 'task' ? 'Task' : 'Contests', p.title, p.creator, p.worker, p.amount, p.tx ?? '']))
 
   return (
     <div className="space-y-3">
@@ -36,7 +36,7 @@ export default function AdminPayments() {
       </button>
       <Card className="divide-y">
         {data.items.map((p) => (
-          <div key={p.tx} className="px-4 py-3 flex items-start justify-between gap-3">
+          <div key={`${p.tx ?? p.title}-${p.at}-${p.worker}`} className="px-4 py-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="text-sm font-medium truncate" style={{ color: 'var(--ink)' }}>{p.title}</div>
               <div className="text-xs" style={{ color: 'var(--muted)' }}>@{p.creator} → @{p.worker} · {p.kind === 'task' ? 'Task' : 'Contests'}</div>
@@ -44,7 +44,7 @@ export default function AdminPayments() {
             </div>
             <div className="text-right flex-shrink-0">
               <div className="font-semibold tabular-nums text-sm" style={{ color: 'var(--ink)' }}>{usdc(p.amount)}</div>
-              <TxLink hash={p.tx} label="Transaction" />
+              {p.tx && <TxLink hash={p.tx} label="Transaction" />}
             </div>
           </div>
         ))}

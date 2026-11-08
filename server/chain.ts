@@ -1,4 +1,5 @@
 import { createPublicClient, erc20Abi, http, keccak256, parseAbiItem, parseEventLogs, parseUnits, stringToBytes, type Hex } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { getChain, getUsdc, USDC_DECIMALS } from '../src/onchain-facts'
 import { HttpError } from './http'
 
@@ -25,7 +26,50 @@ const events = [
   parseAbiItem('event Deposited(address indexed user, uint256 amount)'),
   parseAbiItem('event Withdrawn(address indexed user, uint256 amount)'),
   parseAbiItem('event TaskRefunded(bytes32 indexed taskId, address indexed funder, uint256 amount)'),
+  parseAbiItem('event JobCreated(bytes32 indexed jobId, address indexed funder, uint128 reward, uint32 slots, uint64 deadline, uint32 reviewPeriod)'),
+  parseAbiItem('event ClaimPaid(bytes32 indexed jobId, address indexed worker, uint256 reward, uint8 reason)'),
+  parseAbiItem('event DisputeExpired(bytes32 indexed jobId, address indexed worker, uint256 toWorker, uint256 toFunder)'),
+  parseAbiItem('event JobReclaimed(bytes32 indexed jobId, address indexed funder, uint256 amount)'),
 ] as const
+
+const claimsAbi = [parseAbiItem('function claims(bytes32, address) view returns (uint8 status, uint64 at)')] as const
+
+/** États d'une soumission dans le contrat (ordre de l'énumération ClaimStatus). */
+export const CLAIM_STATUS = ['none', 'pending', 'approved', 'rejected', 'disputed', 'refunded', 'split'] as const
+export type ClaimState = (typeof CLAIM_STATUS)[number]
+
+/** Lit l'état d'une soumission directement dans le contrat. */
+export async function readClaim(appId: string, worker: string): Promise<{ status: ClaimState; at: Date | null }> {
+  if (!VAULT) throw new HttpError(503, 'Contract not configured.')
+  let lastError: unknown
+  for (let i = 0; i < 6; i++) {
+    try {
+      const [status, at] = await client.readContract({ address: VAULT as Hex, abi: claimsAbi, functionName: 'claims', args: [taskIdOf(appId), worker as Hex] })
+      return { status: CLAIM_STATUS[Number(status)] ?? 'none', at: at ? new Date(Number(at) * 1000) : null }
+    } catch (e) { lastError = e; await Bun.sleep(1000) }
+  }
+  throw new HttpError(502, `Could not read the contract: ${lastError instanceof Error ? lastError.message.slice(0, 120) : 'unknown error'}`)
+}
+
+// ── Autorisations de soumission (EIP-712) ─────────────────────────────────────
+
+const signer = process.env.CLAIM_SIGNER_PRIVATE_KEY?.startsWith('0x') ? privateKeyToAccount(process.env.CLAIM_SIGNER_PRIVATE_KEY as Hex) : null
+
+/** Adresse du signataire des autorisations (publique), ou null s'il n'est pas configuré. */
+export const claimSignerAddress = signer?.address ?? null
+
+/** Autorise `worker` à enregistrer une soumission pour `appId` pendant 30 minutes. Cette signature ne donne aucun pouvoir sur les fonds. */
+export async function signClaimPermit(appId: string, worker: string): Promise<{ expiry: number; signature: Hex }> {
+  if (!signer || !VAULT) throw new HttpError(503, 'Submissions are temporarily unavailable.')
+  const expiry = Math.floor(Date.now() / 1000) + 30 * 60
+  const signature = await signer.signTypedData({
+    domain: { name: 'ArcQuestVault', version: '1', chainId: CHAIN_ID, verifyingContract: VAULT as Hex },
+    types: { ClaimPermit: [{ name: 'jobId', type: 'bytes32' }, { name: 'worker', type: 'address' }, { name: 'expiry', type: 'uint64' }] },
+    primaryType: 'ClaimPermit',
+    message: { jobId: taskIdOf(appId), worker: worker as Hex, expiry: BigInt(expiry) },
+  })
+  return { expiry, signature }
+}
 
 /** USDC (vue ERC-20) détenu par le coffre, en unités brutes. null si la lecture échoue. */
 export async function vaultUsdcRaw(): Promise<bigint | null> {
@@ -70,6 +114,19 @@ export async function verifyFunding(hash: Hex, appId: string, funder: string, mi
   if (total < minRaw) throw new HttpError(400, 'The onchain funding does not match (amount, task or wallet).')
 }
 
+/** Vérifie que la transaction a bien créé la tâche `appId` avec exactement ces paramètres, depuis `funder`. */
+export async function verifyJobCreated(
+  hash: Hex, appId: string, funder: string,
+  p: { rewardRaw: bigint; slots: number; deadline: number; reviewPeriod: number },
+): Promise<void> {
+  const id = taskIdOf(appId)
+  const ok = (await vaultLogs(hash)).some((l) =>
+    l.eventName === 'JobCreated' && l.args.jobId === id && l.args.funder.toLowerCase() === funder.toLowerCase()
+    && l.args.reward === p.rewardRaw && l.args.slots === p.slots
+    && Number(l.args.deadline) === p.deadline && l.args.reviewPeriod === p.reviewPeriod)
+  if (!ok) throw new HttpError(400, 'The onchain task does not match (amount, places, deadline, review period or wallet).')
+}
+
 /** Vérifie que la transaction a bien payé exactement `amountRaw` à `worker` pour `appId`. */
 export async function verifyRelease(hash: Hex, appId: string, worker: string, amountRaw: bigint): Promise<void> {
   const id = taskIdOf(appId)
@@ -95,6 +152,12 @@ export async function activityFromTx(hash: Hex, wallet: string): Promise<Activit
     else if (l.eventName === 'TaskFunded' && l.args.funder.toLowerCase() === w) out.push({ logIndex, kind: 'fund', amountRaw: l.args.amount })
     else if (l.eventName === 'RewardReleased' && l.args.worker.toLowerCase() === w) out.push({ logIndex, kind: 'reward', amountRaw: l.args.amount })
     else if (l.eventName === 'TaskRefunded' && l.args.funder.toLowerCase() === w) out.push({ logIndex, kind: 'refund', amountRaw: l.args.amount })
+    else if (l.eventName === 'JobCreated' && l.args.funder.toLowerCase() === w) out.push({ logIndex, kind: 'fund', amountRaw: l.args.reward * BigInt(l.args.slots) })
+    else if (l.eventName === 'ClaimPaid' && l.args.worker.toLowerCase() === w) out.push({ logIndex, kind: 'reward', amountRaw: l.args.reward })
+    else if (l.eventName === 'JobReclaimed' && l.args.funder.toLowerCase() === w) out.push({ logIndex, kind: 'refund', amountRaw: l.args.amount })
+    else if (l.eventName === 'DisputeExpired') {
+      if (l.args.worker.toLowerCase() === w && l.args.toWorker > 0n) out.push({ logIndex, kind: 'reward', amountRaw: l.args.toWorker })
+    }
   }
   if (!out.length) return []
   const block = await client.getBlock({ blockNumber: receipt.blockNumber })

@@ -15,6 +15,8 @@ services:
       - key: COOKIE_SECURE
         value: "true"
       - key: VITE_VAULT_ADDRESS
-        value: "0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274"
+        value: "0xf0848d4325a1cbf85f4c1539194a61036df09b64"
       - key: ADMIN_WALLETS
+        sync: false
+      - key: CLAIM_SIGNER_PRIVATE_KEY
         sync: false

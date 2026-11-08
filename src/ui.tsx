@@ -91,6 +91,10 @@ const PILLS: Record<string, { label: string; color: string; bg: string }> = {
   open:      { label: 'Open', color: 'var(--accent)', bg: 'rgba(26,47,110,0.08)' },
   closed:    { label: 'Closed', color: 'var(--muted)', bg: 'rgba(15,28,53,0.07)' },
   removed:   { label: 'Removed', color: 'var(--danger)', bg: 'rgba(186,43,76,0.09)' },
+  draft:     { label: 'Not sent', color: 'var(--muted)', bg: 'rgba(15,28,53,0.07)' },
+  disputed:  { label: 'Disputed', color: '#a0700a', bg: 'rgba(255,205,131,0.25)' },
+  refunded:  { label: 'Returned to creator', color: 'var(--muted)', bg: 'rgba(15,28,53,0.07)' },
+  split:     { label: 'Split 50/50', color: 'var(--accent)', bg: 'rgba(26,47,110,0.08)' },
 }
 
 export function Pill({ status }: { status: string }) {

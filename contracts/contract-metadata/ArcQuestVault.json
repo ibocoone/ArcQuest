@@ -1,13 +1,20 @@
 {
-  "contractAddress": "0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274",
+  "contractAddress": "0xf0848d4325a1cbf85f4c1539194a61036df09b64",
   "network": "ARC-TESTNET",
   "deployerWalletId": "3c2464b2-8369-52e2-a782-800bbeca5396",
   "contract_code_path": "/home/user/app/contracts/ArcQuestVault.sol",
   "contract_compiled_code_path": "/home/user/app/contracts/out/ArcQuestVault.sol/ArcQuestVault.json",
   "contract_network_and_links": {
-    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274"
+    "Arc Testnet": "https://explorer.testnet.arc.io/address/0xf0848d4325a1cbf85f4c1539194a61036df09b64"
   },
   "contract_deployments": [
+    {
+      "chain": "Arc Testnet",
+      "address": "0xf0848d4325a1cbf85f4c1539194a61036df09b64",
+      "explorerUrl": "https://explorer.testnet.arc.io/address/0xf0848d4325a1cbf85f4c1539194a61036df09b64",
+      "txHash": "0xa0c2f1516ca0e76075dd0c73a428f9edc054e46adb3284824ef9cc8236df1eec",
+      "deployedAt": "2026-11-08T13:40:36.363Z"
+    },
     {
       "chain": "Arc Testnet",
       "address": "0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274",
@@ -24,9 +31,161 @@
           "name": "usdc_",
           "type": "address",
           "internalType": "contract IERC20"
+        },
+        {
+          "name": "arbiter_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "claimSigner_",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "ARBITER_TIMEOUT",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "CLAIM_PERMIT_TYPEHASH",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "DEFAULT_REVIEW_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "DISPUTE_WINDOW",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_JOB_DURATION",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_REVIEW_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MAX_SLOTS",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "MIN_REVIEW_PERIOD",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "acceptArbiter",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "approveClaim",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "arbiter",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
     },
     {
       "type": "function",
@@ -49,12 +208,208 @@
     },
     {
       "type": "function",
+      "name": "claimPermitDigest",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "expiry",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claimSigner",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "claims",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum ArcQuestVault.ClaimStatus"
+        },
+        {
+          "name": "at",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "createJob",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "reward",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "slots",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "deadline",
+          "type": "uint64",
+          "internalType": "uint64"
+        },
+        {
+          "name": "reviewPeriod",
+          "type": "uint32",
+          "internalType": "uint32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "deposit",
       "inputs": [
         {
           "name": "amount",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "disputeClaim",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "eip712Domain",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "fields",
+          "type": "bytes1",
+          "internalType": "bytes1"
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "internalType": "string"
+        },
+        {
+          "name": "chainId",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "verifyingContract",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "salt",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "extensions",
+          "type": "uint256[]",
+          "internalType": "uint256[]"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "expireDispute",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "finalizeClaim",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -85,6 +440,99 @@
     },
     {
       "type": "function",
+      "name": "jobs",
+      "inputs": [
+        {
+          "name": "",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "funder",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "deadline",
+          "type": "uint64",
+          "internalType": "uint64"
+        },
+        {
+          "name": "reviewPeriod",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "slots",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "active",
+          "type": "uint32",
+          "internalType": "uint32"
+        },
+        {
+          "name": "reward",
+          "type": "uint128",
+          "internalType": "uint128"
+        },
+        {
+          "name": "escrow",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "locked",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "pendingArbiter",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "proposeArbiter",
+      "inputs": [
+        {
+          "name": "next",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "reclaimJob",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
       "name": "refundTask",
       "inputs": [
         {
@@ -96,6 +544,42 @@
           "name": "amount",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "rejectClaim",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "releaseRejected",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -119,6 +603,65 @@
           "name": "amount",
           "type": "uint256",
           "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "resolveDispute",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "payWorker",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "setClaimSigner",
+      "inputs": [
+        {
+          "name": "next",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "submitClaim",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "expiry",
+          "type": "uint64",
+          "internalType": "uint64"
+        },
+        {
+          "name": "signature",
+          "type": "bytes",
+          "internalType": "bytes"
         }
       ],
       "outputs": [],
@@ -181,10 +724,304 @@
     },
     {
       "type": "event",
+      "name": "ArbiterChanged",
+      "inputs": [
+        {
+          "name": "previous",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "current",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ArbiterProposed",
+      "inputs": [
+        {
+          "name": "current",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "proposed",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimDisputed",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimPaid",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "reward",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "reason",
+          "type": "uint8",
+          "indexed": false,
+          "internalType": "enum ArcQuestVault.PayReason"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimRefunded",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimRejected",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimSignerChanged",
+      "inputs": [
+        {
+          "name": "previous",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "current",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "ClaimSubmitted",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
       "name": "Deposited",
       "inputs": [
         {
           "name": "user",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "DisputeExpired",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "toWorker",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "toFunder",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "DisputeResolved",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "payWorker",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "EIP712DomainChanged",
+      "inputs": [],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "JobCreated",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "funder",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "reward",
+          "type": "uint128",
+          "indexed": false,
+          "internalType": "uint128"
+        },
+        {
+          "name": "slots",
+          "type": "uint32",
+          "indexed": false,
+          "internalType": "uint32"
+        },
+        {
+          "name": "deadline",
+          "type": "uint64",
+          "indexed": false,
+          "internalType": "uint64"
+        },
+        {
+          "name": "reviewPeriod",
+          "type": "uint32",
+          "indexed": false,
+          "internalType": "uint32"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "JobReclaimed",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "indexed": true,
+          "internalType": "bytes32"
+        },
+        {
+          "name": "funder",
           "type": "address",
           "indexed": true,
           "internalType": "address"
@@ -300,6 +1137,143 @@
     },
     {
       "type": "error",
+      "name": "AlreadyClaimed",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ArbiterTimeoutNotReached",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ArbiterTimeoutReached",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "CannotClaimOwnJob",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ClaimWindowClosed",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "DisputeWindowClosed",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "DisputeWindowOpen",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignature",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignatureLength",
+      "inputs": [
+        {
+          "name": "length",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignatureS",
+      "inputs": [
+        {
+          "name": "s",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "InsufficientBalance",
       "inputs": [
         {
@@ -337,13 +1311,127 @@
     },
     {
       "type": "error",
+      "name": "InvalidClaimState",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "status",
+          "type": "uint8",
+          "internalType": "enum ArcQuestVault.ClaimStatus"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidDeadline",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidPermit",
+      "inputs": []
+    },
+    {
+      "type": "error",
       "name": "InvalidRefundTime",
       "inputs": []
     },
     {
       "type": "error",
-      "name": "NotFunder",
+      "name": "InvalidReviewPeriod",
       "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidShortString",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidSlots",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "JobExists",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "JobNotFound",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "JobStillOpen",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NoSlotsLeft",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NotArbiter",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "arbiter",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "NotFunder",
+      "inputs": [
+        {
+          "name": "caller",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "funder",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "NotPendingArbiter",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "NothingToReclaim",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "PermitExpired",
+      "inputs": [
+        {
+          "name": "expiry",
+          "type": "uint64",
+          "internalType": "uint64"
+        }
+      ]
     },
     {
       "type": "error",
@@ -363,12 +1451,65 @@
     },
     {
       "type": "error",
+      "name": "ReviewPeriodNotOver",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ReviewPeriodOver",
+      "inputs": [
+        {
+          "name": "jobId",
+          "type": "bytes32",
+          "internalType": "bytes32"
+        },
+        {
+          "name": "worker",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "cutoff",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "SafeERC20FailedOperation",
       "inputs": [
         {
           "name": "token",
           "type": "address",
           "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "StringTooLong",
+      "inputs": [
+        {
+          "name": "str",
+          "type": "string",
+          "internalType": "string"
         }
       ]
     },

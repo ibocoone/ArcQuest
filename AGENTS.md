@@ -34,7 +34,7 @@ bun run dev
 ```
 
 ## Contrat déployé
-- ArcQuestVault (Arc Testnet) : 0xfb7ebe0de4f7d6e8395a8337e3400a4e673f6274, variable VITE_VAULT_ADDRESS
+- ArcQuestVault (Arc Testnet) : 0xf0848d4325a1cbf85f4c1539194a61036df09b64, variable VITE_VAULT_ADDRESS
 
 ## Backend
 - API Bun: server/ (port 3001, proxifiée par Vite sur /api). Postgres: conteneur docker "postgres", base earnfi, volume pgdata.

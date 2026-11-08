@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { createPublicClient, createWalletClient, defineChain, erc20Abi, formatUnits, http, keccak256, parseAbi, parseUnits, stringToBytes } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { getChain, getUsdc } from '../../src/onchain-facts'
 import { sql } from '../db'
 
@@ -23,6 +23,15 @@ const vaultAbi = parseAbi([
   'function refundTask(bytes32 taskId, uint256 amount)',
   'function balanceOf(address) view returns (uint256)',
   'function tasks(bytes32) view returns (address funder, uint64 refundableAfter, uint256 escrow)',
+  'function createJob(bytes32 jobId, uint128 reward, uint32 slots, uint64 deadline, uint32 reviewPeriod)',
+  'function submitClaim(bytes32 jobId, uint64 expiry, bytes signature)',
+  'function approveClaim(bytes32 jobId, address worker)',
+  'function rejectClaim(bytes32 jobId, address worker)',
+  'function finalizeClaim(bytes32 jobId, address worker)',
+  'function disputeClaim(bytes32 jobId)',
+  'function resolveDispute(bytes32 jobId, address worker, bool payWorker)',
+  'function reclaimJob(bytes32 jobId)',
+  'function jobs(bytes32) view returns (address funder, uint64 deadline, uint32 reviewPeriod, uint32 slots, uint32 active, uint128 reward, uint256 escrow, uint256 locked)',
 ])
 
 const rpc = getChain(CHAIN_ID)?.rpcUrls[0] ?? ''
@@ -58,121 +67,140 @@ async function signIn(pk: `0x${string}`): Promise<Client> {
 }
 
 describe.skipIf(!keys)('parcours complet sur Arc Testnet', () => {
-  test('dépôt, tâche, soumission, approbation, paiement, retrait', async () => {
+  test('tâche protégée : création, autorisation signée, soumission, approbation, refus, litige', async () => {
     const k = keys as NonNullable<typeof keys>
     const creatorAcc = privateKeyToAccount(k.creator)
     const workerAcc = privateKeyToAccount(k.worker)
-    const creatorW = createWalletClient({ account: creatorAcc, chain, transport: http(rpc) })
-    const workerW = createWalletClient({ account: workerAcc, chain, transport: http(rpc) })
+    const w2Key = generatePrivateKey()
+    const w2Acc = privateKeyToAccount(w2Key)
+    const wallet = (acc: typeof creatorAcc) => createWalletClient({ account: acc, chain, transport: http(rpc) })
+    const creatorW = wallet(creatorAcc)
+    const workerW = wallet(workerAcc)
+    const w2W = wallet(w2Acc)
     const wait = async (hash: `0x${string}`) => {
-      const r = await pub.waitForTransactionReceipt({ hash })
-      expect(r.status).toBe('success')
+      expect((await pub.waitForTransactionReceipt({ hash })).status).toBe('success')
       return hash
     }
     const bal = async (a: `0x${string}`) => await pub.readContract({ address: VAULT, abi: vaultAbi, functionName: 'balanceOf', args: [a] })
+    const jobCall = async (w: ReturnType<typeof wallet>, functionName: string, args: unknown[]) =>
+      wait(await w.writeContract({ address: VAULT, abi: vaultAbi, functionName, args } as any))
+    const reverts = async (acc: typeof creatorAcc, functionName: string, args: unknown[]) => {
+      await expect(pub.simulateContract({ account: acc, address: VAULT, abi: vaultAbi, functionName, args } as any)).rejects.toThrow()
+    }
 
     const creator = await signIn(k.creator)
     const worker = await signIn(k.worker)
-    const ids = [creator.userId, worker.userId]
+    const w2 = await signIn(w2Key)
+    const ids = [creator.userId, worker.userId, w2.userId]
     try {
-      // Le portefeuille du créateur a bien reçu du USDC de test
       const funds = await pub.readContract({ address: usdcAddr, abi: erc20Abi, functionName: 'balanceOf', args: [creatorAcc.address] })
       console.log('USDC du créateur :', formatUnits(funds, 6))
-      expect(funds).toBeGreaterThan(parseUnits('0.5', 6))
+      expect(funds).toBeGreaterThan(parseUnits('0.6', 6))
 
-      const w0 = await bal(workerAcc.address)
-      // 1. Dépôt (autorisation exacte puis dépôt)
+      // Le second travailleur reçoit un peu de USDC pour les frais de réseau
+      await wait(await creatorW.writeContract({ address: usdcAddr, abi: erc20Abi, functionName: 'transfer', args: [w2Acc.address, parseUnits('0.05', 6)] }))
+
+      // 1. Dépôt puis création de la tâche dans le contrat
       const dep = parseUnits('0.3', 6)
-      const b0 = await bal(creatorAcc.address)
       await wait(await creatorW.writeContract({ address: usdcAddr, abi: erc20Abi, functionName: 'approve', args: [VAULT, dep] }))
-      const depHash = await wait(await creatorW.writeContract({ address: VAULT, abi: vaultAbi, functionName: 'deposit', args: [dep] }))
-      // Historique : la transaction est relue sur la blockchain, enregistrée une seule fois, et visible uniquement par son propriétaire
-      expect((await creator.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(1)
-      expect((await creator.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(1)
-      expect((await worker.req('POST', '/me/activity', { txHash: depHash })).body.recorded).toBe(0)
-      const hist = (await creator.req('GET', '/me/activity')).body.items.filter((a: any) => a.txHash === depHash)
-      expect(hist.length).toBe(1)
-      expect(hist[0].kind).toBe('deposit')
-      expect(Number(hist[0].amount)).toBe(0.3)
-      expect((await worker.req('GET', '/me/activity')).body.items.some((a: any) => a.txHash === depHash)).toBe(false)
-      expect((await creator.req('POST', '/me/activity', { txHash: '0x' + '1'.repeat(64) })).status).toBe(400)
-      expect(await bal(creatorAcc.address)).toBe(b0 + dep)
+      await wait(await creatorW.writeContract({ address: VAULT, abi: vaultAbi, functionName: 'deposit', args: [dep] }))
+      const b0 = await bal(creatorAcc.address)
 
-      // 2. Publication d'une tâche : récompense 0.05 x 2 places = 0.1 réservé
       const taskId = crypto.randomUUID()
-      const refundableAfter = BigInt(Math.floor(Date.now() / 1000) + 8 * 86400)
-      const fundTx = await wait(await creatorW.writeContract({
-        address: VAULT, abi: vaultAbi, functionName: 'fundTask', args: [keccak256(stringToBytes(taskId)), parseUnits('0.1', 6), refundableAfter],
-      }))
-      expect(await bal(creatorAcc.address)).toBe(b0 + dep - parseUnits('0.1', 6))
+      const jobId = keccak256(stringToBytes(taskId))
+      const reward = parseUnits('0.05', 6)
+      const deadline = Math.floor(Date.now() / 1000) + 3 * 3600
+      const createTx = await jobCall(creatorW, 'createJob', [jobId, reward, 3, BigInt(deadline), 86_400])
+      expect(await bal(creatorAcc.address)).toBe(b0 - reward * 3n)
+
       const payload = {
-        id: taskId, title: 'Test de bout en bout', description: 'Tâche créée par le test automatique.', instructions: 'Envoyez un lien de preuve quelconque.',
-        type: 'autre', reward: '0.05', slots: 2, deadline: new Date(Date.now() + 5 * 86400_000).toISOString(), fundTx,
+        id: taskId, title: 'Tâche protégée', description: 'Description de la tâche protégée', instructions: 'Instructions de la tâche protégée',
+        type: 'social', reward: '0.05', slots: 3, deadline: new Date(deadline * 1000).toISOString(), reviewDays: 1, fundTx: createTx,
       }
-      // une transaction qui ne correspond pas à la tâche est refusée
-      const other = crypto.randomUUID()
-      expect((await creator.req('POST', '/tasks', { ...payload, id: other })).status).toBe(400)
-      expect((await creator.req('POST', '/tasks', { ...payload, slots: 5 })).status).toBe(400)
-      // le worker ne peut pas enregistrer la tâche du créateur avec sa transaction
+      // paramètres trafiqués ou mauvais créateur : refusés
+      expect((await creator.req('POST', '/tasks', { ...payload, reward: '0.06' })).status).toBe(400)
+      expect((await creator.req('POST', '/tasks', { ...payload, reviewDays: 2 })).status).toBe(400)
+      expect((await creator.req('POST', '/tasks', { ...payload, slots: 4 })).status).toBe(400)
       expect((await worker.req('POST', '/tasks', payload)).status).toBe(400)
-      const created = await creator.req('POST', '/tasks', payload)
-      expect(created.status).toBe(200)
-      expect((await creator.req('POST', '/tasks', payload)).status).toBe(409)
+      expect((await creator.req('POST', '/tasks', payload)).status).toBe(200)
+      const listed = (await worker.req('GET', '/tasks')).body.items.find((t: any) => t.id === taskId)
+      expect(listed.reviewDays).toBe(1)
+      // l'historique enregistre la réservation
+      expect((await creator.req('POST', '/me/activity', { txHash: createTx })).body.recorded).toBe(1)
+      const fund = (await creator.req('GET', '/me/activity')).body.items.find((a: any) => a.txHash === createTx)
+      expect(fund.kind).toBe('fund')
+      expect(Number(fund.amount)).toBe(0.15)
 
-      // 3. Le travailleur voit la tâche et soumet
-      const list = await worker.req('GET', '/tasks')
-      expect(list.body.items.some((t: any) => t.id === taskId)).toBe(true)
-      expect((await worker.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/preuve', note: 'Fait.' })).status).toBe(200)
-      expect((await worker.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/preuve2' })).status).toBe(409)
+      const job = await pub.readContract({ address: VAULT, abi: vaultAbi, functionName: 'jobs', args: [jobId] })
+      expect(job[6]).toBe(reward * 3n)
 
-      // 4. Le créateur approuve : on ne peut pas marquer payé sans paiement
-      const subs = await creator.req('GET', `/tasks/${taskId}/submissions`)
-      const sub = subs.body.items[0]
-      expect(sub.workerWallet).toBe(workerAcc.address.toLowerCase())
-      expect((await creator.req('POST', `/submissions/${sub.id}/approve`, { txHash: fundTx })).status).toBe(400)
-      expect((await worker.req('POST', `/submissions/${sub.id}/approve`, { txHash: fundTx })).status).toBe(403)
+      // 2. Le travailleur obtient une autorisation et enregistre sa soumission
+      const claim = async (c: Client, w: ReturnType<typeof wallet>) => {
+        const p = await c.req('POST', `/tasks/${taskId}/claim-permit`, { proofUrl: 'https://example.com/preuve' })
+        expect(p.status).toBe(200)
+        await jobCall(w, 'submitClaim', [jobId, BigInt(p.body.expiry), p.body.signature])
+        const synced = await c.req('POST', `/submissions/${p.body.submissionId}/sync`, {})
+        expect(synced.body.status).toBe('pending')
+        return { sid: p.body.submissionId as string, permit: p.body }
+      }
+      const c1 = await claim(worker, workerW)
+      // rejeu de l'autorisation et autorisation volée : refusés par le contrat
+      await reverts(workerAcc, 'submitClaim', [jobId, BigInt(c1.permit.expiry), c1.permit.signature])
+      await reverts(w2Acc, 'submitClaim', [jobId, BigInt(c1.permit.expiry), c1.permit.signature])
+      const c2 = await claim(w2, w2W)
 
-      // 5. Vrai paiement depuis le portefeuille du créateur, puis approbation
-      const payTx = await wait(await creatorW.writeContract({
-        address: VAULT, abi: vaultAbi, functionName: 'releaseReward', args: [keccak256(stringToBytes(taskId)), workerAcc.address, parseUnits('0.05', 6)],
-      }))
-      expect(await bal(workerAcc.address)).toBe(w0 + parseUnits('0.05', 6))
-      const ok = await creator.req('POST', `/submissions/${sub.id}/approve`, { txHash: payTx })
-      expect(ok.status).toBe(200)
-      expect((await creator.req('POST', `/submissions/${sub.id}/approve`, { txHash: payTx })).status).toBe(409)
+      const mine = (await worker.req('GET', '/me/submissions')).body.items.find((s: any) => s.id === c1.sid)
+      expect(mine.status).toBe('pending')
+      expect(mine.reviewDays).toBe(1)
+      expect((await creator.req('GET', `/tasks/${taskId}/submissions`)).body.items.length).toBe(2)
+      expect((await creator.req('GET', '/me/tasks')).body.items.find((t: any) => t.id === taskId).pending).toBe(2)
 
-      // 6. Les gains du travailleur sont réels et confirmés
-      const earn = await worker.req('GET', '/me/earnings')
-      expect(earn.body.items.some((e: any) => e.tx === payTx)).toBe(true)
-      const stats = await worker.req('GET', '/me/stats')
-      expect(Number(stats.body.earned)).toBeCloseTo(0.05, 6)
-      const notifs = await worker.req('GET', '/notifications')
-      expect(notifs.body.items.some((n: any) => n.kind === 'paid')).toBe(true)
+      // 3. Avant la fin du délai : impossible de s'auto-payer ; seul le créateur peut approuver ou refuser
+      await reverts(workerAcc, 'finalizeClaim', [jobId, workerAcc.address])
+      await reverts(w2Acc, 'approveClaim', [jobId, workerAcc.address])
+      await reverts(w2Acc, 'rejectClaim', [jobId, workerAcc.address])
 
-      // 7. Le travailleur retire son gain (le créateur lui envoie un peu de gaz)
-      await wait(await creatorW.writeContract({ address: usdcAddr, abi: erc20Abi, functionName: 'transfer', args: [workerAcc.address, parseUnits('0.05', 6)] }))
-      const before = await pub.readContract({ address: usdcAddr, abi: erc20Abi, functionName: 'balanceOf', args: [workerAcc.address] })
-      await wait(await workerW.writeContract({ address: VAULT, abi: vaultAbi, functionName: 'withdraw', args: [parseUnits('0.05', 6)] }))
-      const after = await pub.readContract({ address: usdcAddr, abi: erc20Abi, functionName: 'balanceOf', args: [workerAcc.address] })
-      expect(await bal(workerAcc.address)).toBe(w0)
-      expect(after).toBeGreaterThan(before)
+      // 4. Le créateur approuve le second travailleur : payé dans son solde du contrat
+      const w2Before = await bal(w2Acc.address)
+      await jobCall(creatorW, 'approveClaim', [jobId, w2Acc.address])
+      expect((await creator.req('POST', `/submissions/${c2.sid}/sync`, {})).body.status).toBe('approved')
+      expect(await bal(w2Acc.address)).toBe(w2Before + reward)
+      const earn = (await w2.req('GET', '/me/earnings')).body.items.find((e: any) => e.title === payload.title)
+      expect(Number(earn.amount)).toBe(0.05)
+      expect((await w2.req('GET', '/notifications')).body.items.some((n: any) => n.title === 'Payment received')).toBe(true)
 
-      // 8. Remboursement impossible avant la date prévue (verrou du contrat)
-      const refund = await creatorW.writeContract({
-        address: VAULT, abi: vaultAbi, functionName: 'refundTask', args: [keccak256(stringToBytes(taskId)), parseUnits('0.05', 6)],
-      }).then(() => 'ok', () => 'revert')
-      expect(refund).toBe('revert')
-      const t = await pub.readContract({ address: VAULT, abi: vaultAbi, functionName: 'tasks', args: [keccak256(stringToBytes(taskId))] })
-      expect(t[2]).toBe(parseUnits('0.05', 6))
+      // 5. Le créateur refuse le premier, avec un motif ; le travailleur conteste
+      await jobCall(creatorW, 'rejectClaim', [jobId, workerAcc.address])
+      expect((await creator.req('POST', `/submissions/${c1.sid}/reject-reason`, { reason: 'Capture illisible' })).status).toBe(200)
+      expect((await creator.req('POST', `/submissions/${c1.sid}/reject-reason`, { reason: 'Encore' })).status).toBe(409)
+      const rej = (await worker.req('GET', '/me/submissions')).body.items.find((s: any) => s.id === c1.sid)
+      expect(rej.status).toBe('rejected')
+      expect(rej.rejectReason).toBe('Capture illisible')
+      await jobCall(workerW, 'disputeClaim', [jobId])
+      expect((await worker.req('POST', `/submissions/${c1.sid}/sync`, {})).body.status).toBe('disputed')
 
-      // 9. Un administrateur voit le paiement et l'USDC détenu par le contrat
+      // 6. Un administrateur voit le litige avec la preuve et le motif
       await sql`UPDATE users SET role = 'admin' WHERE id = ${creator.userId}`
-      const pay = await creator.req('GET', '/admin/payments')
-      expect(pay.body.items.some((p: any) => p.tx === payTx)).toBe(true)
+      const disputes = (await creator.req('GET', '/admin/disputes')).body.items
+      const d = disputes.find((x: any) => x.id === c1.sid)
+      expect(d.rejectReason).toBe('Capture illisible')
+      expect(d.proofUrl).toBe('https://example.com/preuve')
+      // Le créateur n'est pas l'arbitre : il ne peut pas trancher son propre litige
+      await reverts(creatorAcc, 'resolveDispute', [jobId, workerAcc.address, false])
+      await reverts(workerAcc, 'resolveDispute', [jobId, workerAcc.address, true])
+
+      // 7. Le créateur ne peut pas reprendre les fonds avant la date limite
+      await reverts(creatorAcc, 'reclaimJob', [jobId])
+      const after = await pub.readContract({ address: VAULT, abi: vaultAbi, functionName: 'jobs', args: [jobId] })
+      expect(after[4]).toBe(2)            // places occupées
+      expect(after[7]).toBe(reward)       // fonds verrouillés pour le litige
+      expect(after[6]).toBe(reward)       // fonds libres restants (1 place)
+
+      // 8. Les finances administrateur voient bien l'USDC du contrat
       const fin = await creator.req('GET', '/admin/finance')
-      expect(fin.status).toBe(200)
       expect(Number(fin.body.vaultUsdc)).toBeGreaterThan(0)
     } finally {
+      await sql`DELETE FROM activity WHERE user_id IN ${sql(ids)}`
       await sql`DELETE FROM notifications WHERE user_id IN ${sql(ids)}`
       await sql`DELETE FROM audit_log WHERE actor_id IN ${sql(ids)}`
       await sql`DELETE FROM submissions WHERE worker_id IN ${sql(ids)} OR task_id IN (SELECT id FROM tasks WHERE creator_id IN ${sql(ids)})`
@@ -180,7 +208,7 @@ describe.skipIf(!keys)('parcours complet sur Arc Testnet', () => {
       await sql`DELETE FROM sessions WHERE user_id IN ${sql(ids)}`
       await sql`DELETE FROM users WHERE id IN ${sql(ids)}`
     }
-  }, 240_000)
+  }, 300_000)
   test('concours : réservation, participation, attribution des prix payés onchain', async () => {
     const k = keys as NonNullable<typeof keys>
     const creatorAcc = privateKeyToAccount(k.creator)

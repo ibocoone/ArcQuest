@@ -145,3 +145,16 @@ CREATE TABLE IF NOT EXISTS activity (
   UNIQUE (tx_hash, log_index)
 );
 CREATE INDEX IF NOT EXISTS activity_user_at ON activity (user_id, at DESC);
+
+-- Protocole v2 : soumissions enregistrées dans le contrat, délai de relecture, litiges
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS protocol int NOT NULL DEFAULT 1;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS review_days int NOT NULL DEFAULT 3;
+ALTER TABLE contests ADD COLUMN IF NOT EXISTS protocol int NOT NULL DEFAULT 1;
+UPDATE tasks SET status = 'closed' WHERE protocol = 1 AND status = 'open';
+UPDATE contests SET status = 'closed' WHERE protocol = 1 AND status = 'open';
+ALTER TABLE submissions DROP CONSTRAINT IF EXISTS submissions_status_check;
+ALTER TABLE submissions ADD CONSTRAINT submissions_status_check CHECK (status IN ('draft','pending','approved','rejected','disputed','refunded','split'));
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS permit_expires timestamptz;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS claim_at timestamptz;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS status_at timestamptz;
+CREATE INDEX IF NOT EXISTS submissions_open_idx ON submissions (status) WHERE status IN ('pending','rejected','disputed');

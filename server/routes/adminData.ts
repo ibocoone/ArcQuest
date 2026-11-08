@@ -36,9 +36,9 @@ route('GET', '/admin/finance', 'admin', async () => {
 route('GET', '/admin/payments', 'admin', async () => {
   const list = await rows<Row>(sql`
     SELECT * FROM (
-      SELECT 'task' AS kind, t.title, w.username AS worker, c.username AS creator, t.reward::text AS amount, s.pay_tx AS tx, s.reviewed_at AS at
+      SELECT 'task' AS kind, t.title, w.username AS worker, c.username AS creator, t.reward::text AS amount, s.pay_tx AS tx, coalesce(s.status_at, s.reviewed_at) AS at
       FROM submissions s JOIN tasks t ON t.id = s.task_id JOIN users w ON w.id = s.worker_id JOIN users c ON c.id = t.creator_id
-      WHERE s.status = 'approved' AND s.pay_tx IS NOT NULL
+      WHERE s.status = 'approved'
       UNION ALL
       SELECT 'contest', k.title, w.username, c.username, e.prize_amount::text, e.pay_tx, e.created_at
       FROM contest_entries e JOIN contests k ON k.id = e.contest_id JOIN users w ON w.id = e.user_id JOIN users c ON c.id = k.creator_id
@@ -99,4 +99,22 @@ route('GET', '/admin/items/:kind/:id/entries', 'admin', async (c) => {
   return {
     items: list.map((r) => ({ id: r.id, status: r.status, proofUrl: r.proof_url, proofFile: r.proof_file, note: r.note, reason: r.reason, tx: r.tx, createdAt: r.created_at, author: r.author })),
   }
+})
+
+/** Litiges ouverts : refus contestés par les travailleurs, que l'arbitre doit trancher dans le contrat. */
+route('GET', '/admin/disputes', 'admin', async () => {
+  const list = await rows<Record<string, unknown>>(sql`
+    SELECT s.id, s.proof_url, s.proof_file, s.note, s.reject_reason, s.status_at, s.claim_at,
+           t.id AS task_id, t.title, t.reward, t.review_days,
+           w.username AS worker, w.wallet_address AS worker_wallet,
+           c.username AS creator, c.wallet_address AS creator_wallet
+    FROM submissions s JOIN tasks t ON t.id = s.task_id
+      JOIN users w ON w.id = s.worker_id JOIN users c ON c.id = t.creator_id
+    WHERE s.status = 'disputed' ORDER BY s.status_at ASC LIMIT 100`)
+  return { items: list.map((d) => ({
+    id: d.id, taskId: d.task_id, title: d.title, reward: d.reward, reviewDays: d.review_days,
+    proofUrl: d.proof_url, proofFile: d.proof_file, note: d.note, rejectReason: d.reject_reason,
+    disputedAt: d.status_at, claimAt: d.claim_at,
+    worker: d.worker, workerWallet: d.worker_wallet, creator: d.creator, creatorWallet: d.creator_wallet,
+  })) }
 })

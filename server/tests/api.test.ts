@@ -50,12 +50,12 @@ async function walletUser(): Promise<{ c: Client; address: string }> {
   return { c, address: account.address.toLowerCase() }
 }
 
-async function insertTask(creatorId: string, over: { slots?: number; deadline?: string; status?: string } = {}) {
+async function insertTask(creatorId: string, over: { slots?: number; deadline?: string; status?: string; protocol?: number } = {}) {
   const id = crypto.randomUUID()
   const [t] = (await sql`
-    INSERT INTO tasks (id, creator_id, title, description, instructions, type, reward, slots, deadline, fund_tx, status)
+    INSERT INTO tasks (id, creator_id, title, description, instructions, type, reward, slots, deadline, fund_tx, status, protocol, review_days)
     VALUES (${id}, ${creatorId}, 'Tâche de test', 'Description de test', 'Instructions de test', 'social', 0.5, ${over.slots ?? 2},
-            ${over.deadline ?? new Date(Date.now() + 86_400_000).toISOString()}, ${'0x' + rnd() + rnd()}, ${over.status ?? 'open'})
+            ${over.deadline ?? new Date(Date.now() + 86_400_000).toISOString()}, ${'0x' + rnd() + rnd()}, ${over.status ?? 'open'}, ${over.protocol ?? 2}, 3)
     RETURNING id`) as { id: string }[]
   taskIds.push(t.id)
   return t.id
@@ -144,64 +144,63 @@ describe('tâches : anti-triche', () => {
     expect((await w.req('GET', '/tasks')).body.items.find((t: any) => t.id === payload.id)).toBeUndefined()
   }, 40_000)
 
-  test('une soumission par personne, places décomptées, date limite, auto-soumission interdite', async () => {
+  test('autorisation de soumission : une par personne, places décomptées, date limite, auto-soumission interdite', async () => {
     const { c: creator } = await walletUser()
     const { c: a } = await walletUser()
     const { c: b } = await walletUser()
     const { c: d } = await walletUser()
     const taskId = await insertTask(creator.userId, { slots: 2 })
     const proof = { proofUrl: 'https://example.com/preuve' }
+    const permit = (c: Client, id: string, body: object) => c.req('POST', `/tasks/${id}/claim-permit`, body)
 
-    expect((await creator.req('POST', `/tasks/${taskId}/submissions`, proof)).status).toBe(400)
-    expect((await a.req('POST', `/tasks/${taskId}/submissions`, { note: 'sans preuve' })).status).toBe(400)
-    expect((await a.req('POST', `/tasks/${taskId}/submissions`, proof)).status).toBe(200)
-    expect((await a.req('POST', `/tasks/${taskId}/submissions`, proof)).status).toBe(409)
-    expect((await b.req('POST', `/tasks/${taskId}/submissions`, proof)).status).toBe(200)
-    expect((await d.req('POST', `/tasks/${taskId}/submissions`, proof)).status).toBe(409)
+    expect((await permit(creator, taskId, proof)).status).toBe(400)
+    expect((await permit(a, taskId, { note: 'sans preuve' })).status).toBe(400)
+    const first = await permit(a, taskId, proof)
+    expect(first.status).toBe(200)
+    expect(first.body.signature).toMatch(/^0x[0-9a-f]{130}$/i)
+    const left = first.body.expiry - Math.floor(Date.now() / 1000)
+    expect(left).toBeGreaterThan(25 * 60)
+    expect(left).toBeLessThanOrEqual(30 * 60)
+    // un brouillon peut être redemandé (transaction échouée), il ne prend qu'une place
+    expect((await permit(a, taskId, proof)).status).toBe(200)
+    expect((await permit(b, taskId, proof)).status).toBe(200)
+    expect((await permit(d, taskId, proof)).status).toBe(409)
     expect((await d.req('GET', `/tasks/${taskId}`)).body.taken).toBe(2)
 
     const late = await insertTask(creator.userId, { deadline: new Date(Date.now() - 1000).toISOString() })
-    expect((await a.req('POST', `/tasks/${late}/submissions`, proof)).status).toBeGreaterThanOrEqual(400)
+    expect((await permit(a, late, proof)).status).toBeGreaterThanOrEqual(400)
+    const legacy = await insertTask(creator.userId, { protocol: 1 })
+    expect((await permit(a, legacy, proof)).status).toBe(410)
   })
 
-  test('soumissions simultanées : jamais plus de places que prévu', async () => {
+  test('autorisations simultanées : jamais plus de places que prévu', async () => {
     const { c: creator } = await walletUser()
     const workers = await Promise.all(Array.from({ length: 6 }, () => walletUser()))
     const taskId = await insertTask(creator.userId, { slots: 3 })
-    const res = await Promise.all(workers.map((w) => w.c.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/p' })))
+    const res = await Promise.all(workers.map((w) => w.c.req('POST', `/tasks/${taskId}/claim-permit`, { proofUrl: 'https://example.com/p' })))
     expect(res.filter((r) => r.status === 200).length).toBe(3)
     expect(res.filter((r) => r.status === 409).length).toBe(3)
   }, 30_000)
 
-  test('seul le créateur examine ; refus avec motif obligatoire ; la place est libérée', async () => {
+  test('sans enregistrement dans le contrat, la soumission reste un brouillon invisible du créateur', async () => {
     const { c: creator } = await walletUser()
     const { c: worker } = await walletUser()
     const { c: other } = await walletUser()
     const taskId = await insertTask(creator.userId, { slots: 1 })
-    await worker.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/p' })
-    const list = await creator.req('GET', `/tasks/${taskId}/submissions`)
-    const sid = list.body.items[0].id as string
+    const p = await worker.req('POST', `/tasks/${taskId}/claim-permit`, { proofUrl: 'https://example.com/p' })
+    const sid = p.body.submissionId as string
 
+    expect((await worker.req('POST', `/submissions/${sid}/sync`, {})).body.status).toBe('draft')
+    expect((await other.req('POST', `/submissions/${sid}/sync`, {})).status).toBe(403)
+    expect((await creator.req('GET', `/tasks/${taskId}/submissions`)).body.items.length).toBe(0)
+    expect((await worker.req('GET', '/me/submissions')).body.items.length).toBe(0)
     expect((await other.req('GET', `/tasks/${taskId}/submissions`)).status).toBe(403)
-    expect((await other.req('POST', `/submissions/${sid}/reject`, { reason: 'Non conforme' })).status).toBe(403)
-    expect((await creator.req('POST', `/submissions/${sid}/reject`, {})).status).toBe(400)
-    expect((await creator.req('POST', `/submissions/${sid}/reject`, { reason: 'Capture illisible' })).status).toBe(200)
-    expect((await creator.req('POST', `/submissions/${sid}/reject`, { reason: 'Encore' })).status).toBe(409)
-    const mine = await worker.req('GET', '/me/submissions')
-    expect(mine.body.items[0].rejectReason).toBe('Capture illisible')
-    expect((await other.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/p' })).status).toBe(200)
-  })
-
-  test('approbation avec un faux paiement refusée, rien n\'est marqué payé', async () => {
-    const { c: creator } = await walletUser()
-    const { c: worker } = await walletUser()
-    const taskId = await insertTask(creator.userId)
-    await worker.req('POST', `/tasks/${taskId}/submissions`, { proofUrl: 'https://example.com/p' })
-    const sid = (await creator.req('GET', `/tasks/${taskId}/submissions`)).body.items[0].id as string
-    const r = await creator.req('POST', `/submissions/${sid}/approve`, { txHash: '0x' + rnd() + rnd() })
-    expect(r.status).toBeGreaterThanOrEqual(400)
-    expect((await creator.req('GET', `/tasks/${taskId}/submissions`)).body.items[0].status).toBe('pending')
-    expect((await worker.req('GET', '/me/earnings')).body.items.length).toBe(0)
+    // le motif de refus exige un refus réel dans le contrat, et seulement du créateur
+    expect((await creator.req('POST', `/submissions/${sid}/reject-reason`, { reason: 'Capture illisible' })).status).toBe(409)
+    expect((await other.req('POST', `/submissions/${sid}/reject-reason`, { reason: 'Capture illisible' })).status).toBe(403)
+    expect((await creator.req('POST', `/submissions/${sid}/reject-reason`, {})).status).toBe(400)
+    // les anciennes routes de paiement déclaratif n'existent plus
+    expect((await creator.req('POST', `/submissions/${sid}/approve`, { txHash: '0x' + rnd() + rnd() })).status).toBe(404)
   }, 40_000)
 })
 
@@ -248,7 +247,7 @@ describe('preuves, signalements et modération', () => {
   test('les données financières et la modération de contenu sont réservées aux administrateurs', async () => {
     const { c: user } = await emailUser()
     const { c: admin } = await emailUser()
-    for (const path of ['/admin/finance', '/admin/payments', '/admin/items?kind=task', '/admin/users']) {
+    for (const path of ['/admin/finance', '/admin/payments', '/admin/disputes', '/admin/items?kind=task', '/admin/users']) {
       expect((await user.req('GET', path)).status).toBe(403)
     }
     await sql`UPDATE users SET role = 'admin' WHERE id = ${admin.userId}`
@@ -256,6 +255,7 @@ describe('preuves, signalements et modération', () => {
     expect(fin.status).toBe(200)
     expect(fin.body.daily.length).toBeGreaterThanOrEqual(7)
     expect((await admin.req('GET', '/admin/payments')).status).toBe(200)
+    expect((await admin.req('GET', '/admin/disputes')).status).toBe(200)
     expect((await admin.req('GET', '/admin/items?kind=bad')).status).toBe(400)
 
     const taskId = await insertTask(admin.userId)

@@ -89,18 +89,22 @@ test("l'API renvoie tous les champs attendus par chaque écran", async () => {
   const t2 = crypto.randomUUID()
   const dl = new Date(Date.now() + 5 * 86400_000).toISOString()
   for (const [id, title] of [[t1, 'Tâche A'], [t2, 'Tâche B']] as const) {
-    await sql`INSERT INTO tasks (id, creator_id, title, description, instructions, type, reward, slots, deadline, fund_tx)
-      VALUES (${id}, ${A.id}, ${title}, 'Description de test', 'Instructions de test', 'autre', '0.5', 3, ${dl}, ${hex()})`
+    await sql`INSERT INTO tasks (id, creator_id, title, description, instructions, type, reward, slots, deadline, fund_tx, protocol, review_days)
+      VALUES (${id}, ${A.id}, ${title}, 'Description de test', 'Instructions de test', 'autre', '0.5', 3, ${dl}, ${hex()}, 2, 3)`
   }
-  await sql`INSERT INTO submissions (task_id, worker_id, proof_url) VALUES (${t1}, ${B.id}, 'https://example.com/p')`
-  await sql`INSERT INTO submissions (task_id, worker_id, proof_url, status, pay_tx, reviewed_at) VALUES (${t2}, ${B.id}, 'https://example.com/q', 'approved', ${hex()}, now())`
+  await sql`INSERT INTO submissions (task_id, worker_id, proof_url, status, claim_at, status_at) VALUES (${t1}, ${B.id}, 'https://example.com/p', 'pending', now(), now())`
+  await sql`INSERT INTO submissions (task_id, worker_id, proof_url, status, claim_at, status_at, reviewed_at) VALUES (${t2}, ${B.id}, 'https://example.com/q', 'approved', now(), now(), now())`
+  const t3 = crypto.randomUUID()
+  await sql`INSERT INTO tasks (id, creator_id, title, description, instructions, type, reward, slots, deadline, fund_tx, protocol, review_days)
+    VALUES (${t3}, ${A.id}, 'Tâche C', 'Description de test', 'Instructions de test', 'autre', '0.5', 3, ${dl}, ${hex()}, 2, 3)`
+  await sql`INSERT INTO submissions (task_id, worker_id, proof_url, status, reject_reason, claim_at, status_at) VALUES (${t3}, ${B.id}, 'https://example.com/r', 'disputed', 'Refus de test', now(), now())`
 
   const k1 = crypto.randomUUID()
   const k2 = crypto.randomUUID()
   const prizes = JSON.stringify([{ place: '1er', amount: '0.3' }])
   for (const [id, title] of [[k1, 'Concours A'], [k2, 'Concours B']] as const) {
-    await sql`INSERT INTO contests (id, creator_id, title, description, prompt, type, ends_at, slots, prizes, prize_pool, fund_tx)
-      VALUES (${id}, ${A.id}, ${title}, 'Description de test', 'Consigne de test', 'autre', ${dl}, 10, ${prizes}::jsonb, '0.3', ${hex()})`
+    await sql`INSERT INTO contests (id, creator_id, title, description, prompt, type, ends_at, slots, prizes, prize_pool, fund_tx, protocol)
+      VALUES (${id}, ${A.id}, ${title}, 'Description de test', 'Consigne de test', 'autre', ${dl}, 10, ${prizes}::jsonb, '0.3', ${hex()}, 2)`
   }
   await sql`INSERT INTO contest_entries (contest_id, user_id, note) VALUES (${k1}, ${B.id}, 'Mon idée')`
   await sql`INSERT INTO contest_entries (contest_id, user_id, note, status, prize_place, prize_amount, pay_tx) VALUES (${k2}, ${B.id}, 'Gagnant', 'winner', '1er', '0.3', ${hex()})`
@@ -142,5 +146,6 @@ test("l'API renvoie tous les champs attendus par chaque écran", async () => {
   check('components/AdminFinance.tsx', 'Finance', await get(A, '/admin/finance'), '/admin/finance')
   check('components/AdminItems.tsx', 'Item', first(await get(A, '/admin/items?kind=task'), '/admin/items?kind=task'), '/admin/items?kind=task')
   check('components/AdminItems.tsx', 'Item', first(await get(A, '/admin/items?kind=contest'), '/admin/items?kind=contest'), '/admin/items?kind=contest')
+  check('components/AdminDisputes.tsx', 'Dispute', first(await get(A, '/admin/disputes'), '/admin/disputes'), '/admin/disputes')
   check('components/AdminItems.tsx', 'Entry', first(await get(A, `/admin/items/task/${t1}/entries`), 'admin entries'), '/admin/items/task/:id/entries')
 })
