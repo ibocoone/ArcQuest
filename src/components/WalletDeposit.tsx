@@ -5,11 +5,19 @@ import { useAccount, useSwitchChain } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import { toast } from 'sonner'
 import { ARC_TESTNET_ID, VAULT_ADDRESS } from '@/contracts/vault'
-import { explorerTx, useVaultActions } from '../hooks/useVault'
+import { explorerTx, useVaultActions, type DepositStep } from '../hooks/useVault'
 import { useQueryClient } from '@tanstack/react-query'
 
 const QUICK = ['1', '5', '10', '25', '50']
 type Step = 'idle' | 'working'
+
+const STEP_LABEL: Record<DepositStep, string> = {
+  checking: 'Checking your allowance…',
+  approve: 'Step 1 of 2: confirm the approval in your wallet',
+  approving: 'Waiting for the approval to be confirmed…',
+  deposit: 'Confirm the deposit in your wallet',
+  confirming: 'Waiting for the deposit to be confirmed…',
+}
 
 export default function WalletDeposit({ walletBalance, onDone }: { walletBalance: string; onDone: () => void }) {
   const { isConnected, chainId } = useAccount()
@@ -20,6 +28,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
   const [amount, setAmount] = useState('')
   const [step, setStep] = useState<Step>('idle')
   const [lastTx, setLastTx] = useState<string | null>(null)
+  const [phase, setPhase] = useState<DepositStep | null>(null)
 
   const num = parseFloat(amount)
   const valid = amount !== '' && num > 0
@@ -31,7 +40,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
     if (disabled) return
     setStep('working')
     try {
-      const hash = await deposit(amount)
+      const hash = await deposit(amount, setPhase)
       void qc.invalidateQueries({ queryKey: ['activity'] })
       setLastTx(hash)
       setAmount('')
@@ -43,6 +52,7 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
       toast.error(/rejected|denied/i.test(msg) ? 'Transaction cancelled.' : 'The deposit failed. Check your USDC balance and try again.')
     } finally {
       setStep('idle')
+      setPhase(null)
     }
   }
 
@@ -107,8 +117,14 @@ export default function WalletDeposit({ walletBalance, onDone }: { walletBalance
           <button onClick={() => void handleDeposit()} disabled={disabled}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]"
             style={{ background: disabled ? 'var(--subtle)' : 'var(--accent)', color: 'white', cursor: disabled ? 'not-allowed' : 'pointer' }}>
-            {busy ? 'Confirm in your wallet…' : <><PlusCircle size={15} /> Deposit {valid ? `$${amount}` : ''} USDC</>}
+            {busy ? (phase ? STEP_LABEL[phase] : 'Working…') : <><PlusCircle size={15} /> Deposit {valid ? `$${amount}` : ''} USDC</>}
           </button>
+
+          {busy && (phase === 'approve' || phase === 'deposit') && (
+            <p className="text-xs text-center" style={{ color: 'var(--muted)' }}>
+              No request showing? Open your wallet extension and look for a pending confirmation.
+            </p>
+          )}
         </>
       )}
     </div>

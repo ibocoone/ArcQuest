@@ -46,13 +46,17 @@ export function toRaw(amount: string): bigint {
   return parseUnits(amount, USDC_DECIMALS)
 }
 
+/** Cherche le reçu d'une transaction. Le RPC public peut être lent ou refuser des requêtes : on insiste environ 30 secondes avant d'abandonner. */
+async function fetchReceipt(hash: Hex) {
+  for (let i = 0; i < 20; i++) {
+    try { return await client.getTransactionReceipt({ hash }) } catch { await Bun.sleep(1500) }
+  }
+  throw new HttpError(400, 'Transaction not found on Arc Testnet. If you just sent it, wait a few seconds and try again.')
+}
+
 async function vaultLogs(hash: Hex) {
   if (!VAULT) throw new HttpError(503, 'Contract not configured.')
-  let receipt = null
-  for (let i = 0; i < 8 && !receipt; i++) {
-    try { receipt = await client.getTransactionReceipt({ hash }) } catch { await Bun.sleep(1500) }
-  }
-  if (!receipt) throw new HttpError(400, 'Transaction not found on Arc Testnet.')
+  const receipt = await fetchReceipt(hash)
   if (receipt.status !== 'success') throw new HttpError(400, 'The transaction failed onchain.')
   return parseEventLogs({ abi: events, logs: receipt.logs.filter((l) => l.address.toLowerCase() === VAULT) })
 }
@@ -80,11 +84,7 @@ export interface ActivityEntry { logIndex: number; kind: 'deposit' | 'withdraw' 
 /** Opérations du contrat qui concernent `wallet` dans la transaction `hash` (lues sur la blockchain, jamais saisies par le client). */
 export async function activityFromTx(hash: Hex, wallet: string): Promise<ActivityEntry[]> {
   if (!VAULT) throw new HttpError(503, 'Contract not configured.')
-  let receipt = null
-  for (let i = 0; i < 8 && !receipt; i++) {
-    try { receipt = await client.getTransactionReceipt({ hash }) } catch { await Bun.sleep(1500) }
-  }
-  if (!receipt) throw new HttpError(400, 'Transaction not found on Arc Testnet.')
+  const receipt = await fetchReceipt(hash)
   if (receipt.status !== 'success') throw new HttpError(400, 'The transaction failed onchain.')
   const w = wallet.toLowerCase()
   const out: Omit<ActivityEntry, 'at'>[] = []

@@ -31,6 +31,18 @@ export function explorerTx(hash: string): string {
 }
 
 /** Actions onchain sur le coffre. Chaque fonction attend la confirmation et renvoie le hash. */
+export type DepositStep = 'checking' | 'approve' | 'approving' | 'deposit' | 'confirming'
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms)
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value) },
+      (error: unknown) => { clearTimeout(timer); reject(error instanceof Error ? error : new Error(String(error))) },
+    )
+  })
+}
+
 export function useVaultActions() {
   const { address } = useAccount()
   const publicClient = usePublicClient({ chainId: ARC_TESTNET_ID })
@@ -45,7 +57,7 @@ export function useVaultActions() {
 
   const confirm = async (hash: `0x${string}`) => {
     const { client } = ready()
-    const receipt = await client.waitForTransactionReceipt({ hash })
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000, pollingInterval: 2_000 })
     if (receipt.status !== 'success') throw new Error('Transaction failed onchain')
     // Le serveur relit la transaction sur la blockchain et l'ajoute à l'historique ; sans effet sur l'opération
     void api('/me/activity', { body: { txHash: hash } })
@@ -54,15 +66,28 @@ export function useVaultActions() {
     return hash
   }
 
-  const deposit = async (amount: string) => {
+  const deposit = async (amount: string, onStep?: (step: DepositStep) => void) => {
     const { vault, token, owner, client } = ready()
     const raw = parseAmount(ARC_TESTNET_ID, amount).raw
-    const allowance = await client.readContract({ address: token, abi: erc20Abi, functionName: 'allowance', args: [owner, vault] })
-    if (allowance < raw) {
-      // approbation exacte du montant, jamais illimitée
-      await confirm(await writeContractAsync({ address: token, abi: erc20Abi, functionName: 'approve', args: [vault, raw], chainId: ARC_TESTNET_ID }))
+    onStep?.('checking')
+    // Si le RPC public est lent ou refuse la lecture, on ne bloque pas : on demande simplement l'autorisation.
+    let allowance = 0n
+    try {
+      allowance = await withTimeout(client.readContract({ address: token, abi: erc20Abi, functionName: 'allowance', args: [owner, vault] }), 5_000)
+    } catch {
+      allowance = 0n
     }
-    return confirm(await writeContractAsync({ address: vault, abi: vaultAbi, functionName: 'deposit', args: [raw], chainId: ARC_TESTNET_ID }))
+    if (allowance < raw) {
+      onStep?.('approve')
+      // approbation exacte du montant, jamais illimitée
+      const approval = await writeContractAsync({ address: token, abi: erc20Abi, functionName: 'approve', args: [vault, raw], chainId: ARC_TESTNET_ID })
+      onStep?.('approving')
+      await confirm(approval)
+    }
+    onStep?.('deposit')
+    const hash = await writeContractAsync({ address: vault, abi: vaultAbi, functionName: 'deposit', args: [raw], chainId: ARC_TESTNET_ID })
+    onStep?.('confirming')
+    return confirm(hash)
   }
 
   const withdraw = async (amount: string) => {
