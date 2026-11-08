@@ -4,11 +4,12 @@ import { toast } from 'sonner'
 import { api, fmtDate, usdc } from '../api'
 import { Card, Empty, ErrorBox, Loading, PageTitle, Tabs, inputStyle } from '../ui'
 import AdminFinance from './AdminFinance'
+import AdminEmail from './AdminEmail'
 import AdminDisputes from './AdminDisputes'
 import AdminItems from './AdminItems'
 import AdminPayments, { downloadCsv } from './AdminPayments'
 
-type Tab = 'finance' | 'disputes' | 'reports' | 'items' | 'payments' | 'users' | 'audit'
+type Tab = 'finance' | 'disputes' | 'reports' | 'items' | 'payments' | 'users' | 'email' | 'audit'
 interface Overview { users: number; suspended: number; tasks: number; contests: number; pending_submissions: number; open_reports: number }
 interface Report { id: string; targetType: string; targetLabel: string | null; reason: string; reporter: string; createdAt: string }
 interface AdminUser {
@@ -130,7 +131,7 @@ export default function AdminPage() {
       </div>
       <Tabs<Tab> value={tab} onChange={setTab} tabs={[
         { id: 'finance', label: 'Finances' }, { id: 'disputes', label: 'Disputes' }, { id: 'reports', label: 'Reports', badge: data?.open_reports },
-        { id: 'items', label: 'Content' }, { id: 'payments', label: 'Payments' }, { id: 'users', label: 'Accounts' }, { id: 'audit', label: 'Log' },
+        { id: 'items', label: 'Content' }, { id: 'payments', label: 'Payments' }, { id: 'users', label: 'Accounts' }, { id: 'email', label: 'Email' }, { id: 'audit', label: 'Log' },
       ]} />
       {tab === 'finance' && <AdminFinance />}
       {tab === 'disputes' && <AdminDisputes />}
@@ -138,6 +139,7 @@ export default function AdminPage() {
       {tab === 'payments' && <AdminPayments />}
       {tab === 'reports' && <Reports />}
       {tab === 'users' && <Users />}
+      {tab === 'email' && <AdminEmail />}
       {tab === 'audit' && <Audit />}
     </div>
   )

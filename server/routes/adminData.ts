@@ -1,6 +1,7 @@
+import { emailEnabled, publicBase, recentEmailErrors, sendEmail } from '../email'
 import { formatUnits } from 'viem'
 import { one, rows, sql } from '../db'
-import { HttpError, audit, notify, route, str, uuid, type AuthUser } from '../http'
+import { HttpError, audit, notify, rateLimit, route, str, uuid, type AuthUser } from '../http'
 import { vaultUsdcRaw } from '../chain'
 import { USDC_DECIMALS } from '../../src/onchain-facts'
 
@@ -117,4 +118,31 @@ route('GET', '/admin/disputes', 'admin', async () => {
     disputedAt: d.status_at, claimAt: d.claim_at,
     worker: d.worker, workerWallet: d.worker_wallet, creator: d.creator, creatorWallet: d.creator_wallet,
   })) }
+})
+
+// ── Diagnostic des e-mails ──────────────────────────────────────────────────
+
+route('GET', '/admin/email-status', 'admin', () => ({
+  configured: emailEnabled(),
+  from: process.env.EMAIL_FROM ?? null,
+  fromName: process.env.EMAIL_FROM_NAME ?? 'ArcQuest',
+  publicUrl: publicBase() || null,
+  production: process.env.NODE_ENV === 'production',
+  recentErrors: recentEmailErrors(),
+}))
+
+route('POST', '/admin/email-test', 'admin', async (c) => {
+  const me = c.user as AuthUser
+  rateLimit(`email-test:${me.id}`, 10, 3_600_000)
+  const b = await c.json()
+  const to = str(b.to, 5, 200, 'Email').toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) throw new HttpError(400, 'Invalid email address.')
+  if (!emailEnabled()) return { ok: false, error: 'No email provider is configured on the server (BREVO_API_KEY and EMAIL_FROM are missing).' }
+  try {
+    await sendEmail(to, 'ArcQuest test email', 'This is a test email from ArcQuest. If you can read it, sending works.',
+      '<p style="font-family:Arial,sans-serif">This is a test email from ArcQuest. If you can read it, sending works.</p>')
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Sending failed.' }
+  }
 })

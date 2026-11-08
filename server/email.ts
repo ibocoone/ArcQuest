@@ -19,18 +19,36 @@ ${footer ? `<p style="font-size:12px;color:#6b7280;margin-top:24px">${esc(footer
 </div>`
 }
 
+/** Dernières erreurs d'envoi (en mémoire), visibles par les administrateurs pour diagnostiquer le fournisseur. */
+const recentErrors: { at: string; message: string }[] = []
+export const recentEmailErrors = () => [...recentErrors]
+function recordEmailError(e: unknown) {
+  const message = e instanceof Error ? e.message : String(e)
+  recentErrors.unshift({ at: new Date().toISOString(), message })
+  recentErrors.length = Math.min(recentErrors.length, 20)
+  console.error('[email] send failed:', message)
+}
+
 export async function sendEmail(to: string, subject: string, text: string, htmlBody: string): Promise<void> {
   if (emailEnabled()) {
-    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: { 'api-key': process.env.BREVO_API_KEY as string, 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
-        sender: { name: process.env.EMAIL_FROM_NAME ?? 'ArcQuest', email: process.env.EMAIL_FROM },
-        to: [{ email: to }], subject, textContent: text, htmlContent: htmlBody,
-      }),
-      signal: AbortSignal.timeout(10_000),
-    })
-    if (!res.ok) throw new Error(`Email provider error ${res.status}`)
+    try {
+      const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { 'api-key': process.env.BREVO_API_KEY as string, 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
+          sender: { name: process.env.EMAIL_FROM_NAME ?? 'ArcQuest', email: process.env.EMAIL_FROM },
+          to: [{ email: to }], subject, textContent: text, htmlContent: htmlBody,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 240)
+        throw new Error(`Email provider error ${res.status}: ${detail}`)
+      }
+    } catch (e) {
+      recordEmailError(e)
+      throw e
+    }
     return
   }
   if (process.env.NODE_ENV !== 'production') {

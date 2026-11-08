@@ -327,6 +327,23 @@ describe('e-mails : confirmation, mot de passe oublié, notifications', () => {
     expect((await k.req('POST', '/auth/forgot', { email })).status).toBe(429)
   })
 
+  test('diagnostic e-mail : réservé aux administrateurs, avec un message clair si rien n\'est configuré', async () => {
+    const { c: user } = await emailUser()
+    expect((await user.req('GET', '/admin/email-status')).status).toBe(403)
+    expect((await user.req('POST', '/admin/email-test', { to: 'x@example.test' })).status).toBe(403)
+    const { c: admin, email: adminEmail } = await emailUser()
+    await sql`UPDATE users SET role = 'admin' WHERE email = ${adminEmail}`
+    const st = await admin.req('GET', '/admin/email-status')
+    expect(st.status).toBe(200)
+    expect(st.body.configured).toBe(false)
+    expect(Array.isArray(st.body.recentErrors)).toBe(true)
+    const t = await admin.req('POST', '/admin/email-test', { to: 'x@example.test' })
+    expect(t.status).toBe(200)
+    expect(t.body.ok).toBe(false)
+    expect(String(t.body.error)).toMatch(/BREVO_API_KEY/)
+    expect((await admin.req('POST', '/admin/email-test', { to: 'not-an-email' })).status).toBe(400)
+  })
+
   test('e-mail de notification : seulement si l\'adresse est confirmée et l\'option activée', async () => {
     const { c, email } = await emailUser()
     const uid = c.userId
