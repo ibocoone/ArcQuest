@@ -1,3 +1,4 @@
+import { emailNotification, publicBase, verificationRequired } from './email'
 import { one, sql } from './db'
 
 export class HttpError extends Error {
@@ -14,6 +15,8 @@ export interface AuthUser {
   role: 'user' | 'admin'
   status: 'active' | 'suspended'
   created_at: Date
+  email_verified_at?: Date | null
+  email_notifications?: boolean
 }
 
 export interface Ctx {
@@ -115,7 +118,7 @@ export async function sessionUser(req: Request): Promise<AuthUser | null> {
   const token = readCookie(req, COOKIE)
   if (!token) return null
   return one<AuthUser>(sql`
-    SELECT u.id, u.email, u.username, u.display_name, u.wallet_address, u.referral_code, u.role, u.status, u.created_at
+    SELECT u.id, u.email, u.username, u.display_name, u.wallet_address, u.referral_code, u.role, u.status, u.created_at, u.email_verified_at, u.email_notifications
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ${sha256(token)} AND s.expires_at > now()`)
 }
@@ -131,6 +134,9 @@ export function publicUser(u: AuthUser) {
     referralCode: u.referral_code,
     createdAt: u.created_at,
     role: u.role,
+    emailVerified: u.email ? !!u.email_verified_at : null,
+    verificationRequired: verificationRequired(),
+    emailNotifications: u.email_notifications ?? true,
   }
 }
 
@@ -185,4 +191,18 @@ export async function audit(actor: string | null, action: string, target: string
 
 export async function notify(userId: string, kind: string, title: string, body = '', link: string | null = null): Promise<void> {
   await sql`INSERT INTO notifications (user_id, kind, title, body, link) VALUES (${userId}, ${kind}, ${title}, ${body}, ${link})`
+  void emailNotification(userId, kind, title, body)
+}
+
+/** Les comptes e-mail doivent confirmer leur adresse avant de publier ou de soumettre (si l'envoi d'e-mails est actif). */
+export function requireVerified(u: AuthUser): void {
+  if (u.email && !u.email_verified_at && verificationRequired()) throw new HttpError(403, 'Verify your email address first. Check your inbox or resend the email from Settings.')
+}
+
+/** Adresse publique du site pour les liens envoyés par e-mail. En production elle vient uniquement de PUBLIC_URL (jamais d'un en-tête de la requête). */
+export function baseUrl(c: Ctx): string {
+  const fixed = publicBase()
+  if (fixed) return fixed
+  if (process.env.NODE_ENV === 'production') throw new Error('PUBLIC_URL is not configured')
+  return `${c.url.protocol}//${c.url.host}`
 }

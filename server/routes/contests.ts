@@ -1,6 +1,6 @@
 import { formatUnits } from 'viem'
 import { one, rows, sql } from '../db'
-import { HttpError, audit, httpUrl, notify, optStr, rateLimit, route, str, txHash, uuid, amount, type AuthUser } from '../http'
+import { HttpError, audit, httpUrl, notify, optStr, rateLimit, requireVerified, route, str, txHash, uuid, amount, type AuthUser } from '../http'
 import { toRaw, verifyFunding, verifyRelease } from '../chain'
 
 const TYPES = ['meme', 'contenu', 'referral', 'video', 'autre']
@@ -40,6 +40,7 @@ route('GET', '/contests', 'user', async (c) => {
 
 route('POST', '/contests', 'user', async (c) => {
   const me = c.user as AuthUser
+  requireVerified(me)
   const b = await c.json()
   rateLimit(`contest:${me.id}`, 10, 3_600_000)
   const id = uuid(b.id, 'ID')
@@ -78,6 +79,7 @@ route('POST', '/contests/:id/close', 'user', async (c) => {
 
 route('POST', '/contests/:id/entries', 'user', async (c) => {
   const me = c.user as AuthUser
+  requireVerified(me)
   const id = uuid(c.params.id, 'Contest')
   const b = await c.json()
   rateLimit(`entry:${me.id}`, 60, 3_600_000)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight, Clock, ExternalLink, Search, Users } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Clock, ExternalLink, Link2, Search, Users } from 'lucide-react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { TokenUSDC } from '@web3icons/react'
 import { toast } from 'sonner'
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext'
 import { useTxGate, useVaultActions } from '../hooks/useVault'
 import { Card, Empty, ErrorBox, Loading, Pill, inputStyle, primaryBtn } from '../ui'
 import ProofFields, { buildProof, emptyProof, type ProofValue } from './ProofFields'
+import { buildShareLink } from '../lib/share'
+import { nowSec, toSec } from '../lib/time'
 import ReportButton from './ReportButton'
 
 export const TASK_TYPES = [
@@ -18,7 +20,7 @@ export const TASK_TYPES = [
 interface Task {
   id: string; title: string; description: string; instructions?: string; type: string; platform: string | null
   url: string | null; reward: string; slots: number; taken: number; deadline: string; creator: string
-  creatorId: string; myStatus: string | null; reviewDays: number
+  creatorId: string; myStatus: string | null; reviewDays: number; status: string
 }
 
 const STEP_TEXT = {
@@ -77,12 +79,29 @@ function SubmitForm({ task }: { task: Task }) {
   )
 }
 
-function TaskCard({ task }: { task: Task }) {
+function CopyLink({ id }: { id: string }) {
+  const [done, setDone] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(await buildShareLink(`/?task=${id}`))
+      setDone(true)
+      setTimeout(() => setDone(false), 1500)
+    } catch { toast.error('Could not copy the link.') }
+  }
+  return (
+    <button onClick={() => void copy()} className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-sm font-medium" style={{ color: 'var(--accent)' }}>
+      {done ? <Check size={14} /> : <Link2 size={14} />} {done ? 'Link copied' : 'Copy link'}
+    </button>
+  )
+}
+
+function TaskCard({ task, defaultOpen = false }: { task: Task; defaultOpen?: boolean }) {
   const { user } = useAuth()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const left = task.slots - task.taken
   const mine = task.creatorId === user?.id
-  const canSubmit = !mine && (!task.myStatus || task.myStatus === 'draft') && left > 0
+  const available = task.status === 'open' && toSec(task.deadline) > nowSec()
+  const canSubmit = available && !mine && (!task.myStatus || task.myStatus === 'draft') && left > 0
 
   return (
     <Card>
@@ -116,15 +135,33 @@ function TaskCard({ task }: { task: Task }) {
             </a>
           )}
           {canSubmit && <SubmitForm task={task} />}
-          {!canSubmit && !mine && !task.myStatus && left <= 0 && <p className="text-sm" style={{ color: 'var(--muted)' }}>All places are taken.</p>}
-          {!mine && <ReportButton type="task" id={task.id} />}
+          {!canSubmit && !mine && !task.myStatus && !available && <p className="text-sm" style={{ color: 'var(--muted)' }}>This task is closed.</p>}
+          {!canSubmit && !mine && !task.myStatus && available && left <= 0 && <p className="text-sm" style={{ color: 'var(--muted)' }}>All places are taken.</p>}
+          <div className="flex items-center gap-4 flex-wrap">
+            <CopyLink id={task.id} />
+            {!mine && <ReportButton type="task" id={task.id} />}
+          </div>
         </div>
       )}
     </Card>
   )
 }
 
-export default function TaskOffers() {
+function SharedTask({ id, onDismiss }: { id: string; onDismiss?: () => void }) {
+  const { data, isLoading, error } = useQuery({ queryKey: ['task', id], queryFn: () => api<Task>(`/tasks/${id}`) })
+  if (isLoading) return null
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--muted)' }}>Shared with you</span>
+        <button onClick={onDismiss} className="min-h-[44px] px-2 text-xs font-medium" style={{ color: 'var(--accent)' }}>Hide</button>
+      </div>
+      {error ? <ErrorBox message="This task is no longer available." /> : data && <TaskCard task={data} defaultOpen />}
+    </div>
+  )
+}
+
+export default function TaskOffers({ sharedTask, onDismissShared }: { sharedTask?: string | null; onDismissShared?: () => void }) {
   const [q, setQ] = useState('')
   const [type, setType] = useState('')
   const [page, setPage] = useState(1)
@@ -140,6 +177,7 @@ export default function TaskOffers() {
 
   return (
     <div className="space-y-3">
+      {sharedTask && <SharedTask id={sharedTask} onDismiss={onDismissShared} />}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--subtle)' }} />

@@ -6,6 +6,7 @@ import { api } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useVaultBalance } from '../hooks/useVault'
 import { Card, Loading, PageTitle, primaryBtn } from '../ui'
+import GetStarted from './GetStarted'
 
 interface Stats {
   tasksDone: number; pendingSubmissions: number; contestWins: number; earned: string
@@ -36,6 +37,7 @@ export default function DashboardHome({ onNavigate }: { onNavigate: (target: str
   return (
     <div className="max-w-3xl space-y-5">
       <PageTitle title={`${hello()}, ${user?.fullName ?? ''}`} sub="Here is the real status of your activity on ArcQuest." />
+      <GetStarted stats={s} onNavigate={onNavigate} />
 
       <div className="rounded-2xl p-5" style={{ background: 'var(--accent)', boxShadow: '0 12px 40px rgba(26,47,110,0.25)' }}>
         <div className="flex items-center gap-1.5 text-xs font-semibold text-white opacity-60 uppercase tracking-wider"><TokenUSDC variant="branded" size={14} /> ArcQuest balance</div>

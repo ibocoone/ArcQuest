@@ -11,7 +11,7 @@ import TaskOffers from './TaskOffers'
 type Tab = 'offers' | 'submissions' | 'mine'
 const VALID: Tab[] = ['offers', 'submissions', 'mine']
 
-export default function JobsPage({ initialTab }: { initialTab?: string }) {
+export default function JobsPage({ initialTab, sharedTask, onDismissShared }: { initialTab?: string; sharedTask?: string | null; onDismissShared?: () => void }) {
   const [tab, setTab] = useState<Tab>(VALID.includes(initialTab as Tab) ? (initialTab as Tab) : 'offers')
   const [creating, setCreating] = useState(false)
   const stats = useQuery({ queryKey: ['stats'], queryFn: () => api<{ toReview: number }>('/me/stats') })
@@ -30,7 +30,7 @@ export default function JobsPage({ initialTab }: { initialTab?: string }) {
         { id: 'submissions', label: 'My submissions' },
         { id: 'mine', label: 'My tasks', badge: stats.data?.toReview },
       ]} />
-      {tab === 'offers' && <TaskOffers />}
+      {tab === 'offers' && <TaskOffers sharedTask={sharedTask} onDismissShared={onDismissShared} />}
       {tab === 'submissions' && <MySubmissions />}
       {tab === 'mine' && <MyTasks />}
     </div>

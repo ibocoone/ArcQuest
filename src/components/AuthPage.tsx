@@ -8,6 +8,7 @@ import { api, walletMessage } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { inputStyle } from '../ui'
 import { SUPPORT } from '../support'
+import ForgotForm from './ForgotForm'
 
 type Method = 'email' | 'wallet'
 type Mode = 'login' | 'register'
@@ -18,13 +19,14 @@ function initialRef(): string {
   return (new URLSearchParams(window.location.search).get('ref') ?? '').toUpperCase()
 }
 
-export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | 'privacy') => void }) {
+export default function AuthPage({ onOpenLegal, startMode = 'register' }: { onOpenLegal: (p: 'terms' | 'privacy') => void; startMode?: Mode }) {
   const { refresh } = useAuth()
   const { address, isConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
 
   const [method, setMethod] = useState<Method>('email')
-  const [mode, setMode] = useState<Mode>('register')
+  const [mode, setMode] = useState<Mode>(startMode)
+  const [forgot, setForgot] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -96,7 +98,7 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
             {tabBtn('wallet', 'Wallet', Wallet)}
           </div>
 
-          {method === 'email' ? (
+          {method === 'email' ? (forgot ? <ForgotForm email={email} setEmail={setEmail} onBack={() => setForgot(false)} /> : (
             <form onSubmit={(e) => void submitEmail(e)} className="space-y-4">
               <div>
                 <label className={labelCls} style={{ color: '#6b6580' }}>Email address</label>
@@ -114,6 +116,11 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
                   </button>
                 </div>
               </div>
+              {!isRegister && (
+                <div className="text-right -mt-2">
+                  <button type="button" onClick={() => setForgot(true)} className="min-h-[44px] text-sm font-medium" style={{ color: '#1a2f6e' }}>Forgot your password?</button>
+                </div>
+              )}
               {isRegister && referralField}
               <button type="submit" disabled={busy} className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-xl font-semibold text-sm text-white active:scale-[0.98]" style={cta(busy)}>
                 {isRegister ? <UserPlus size={16} /> : <LogIn size={16} />}
@@ -123,7 +130,7 @@ export default function AuthPage({ onOpenLegal }: { onOpenLegal: (p: 'terms' | '
                 {isRegister ? 'Already have an account? Sign in' : 'New to ArcQuest? Create an account'}
               </button>
             </form>
-          ) : (
+          )) : (
             <div className="space-y-4">
               <p className="text-sm text-pretty" style={{ color: '#6b6580' }}>
                 Connect your wallet and sign a message to prove you own it. No transaction and no fees. An account is created the first time you sign in.

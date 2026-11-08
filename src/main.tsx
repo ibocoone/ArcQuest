@@ -23,8 +23,10 @@ import { config } from './config'
 import App from './App'
 import './index.css'
 import { installShareSync } from './lib/share'
+import { captureDeepLink } from './lib/deeplink'
 
 installShareSync()
+captureDeepLink()
 
 const queryClient = new QueryClient()
 

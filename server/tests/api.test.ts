@@ -2,6 +2,8 @@
 import { afterAll, describe, expect, test } from 'bun:test'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { sql } from '../db'
+import { outboxFor } from '../email'
+import { notify } from '../http'
 
 // Ces tests s'exécutent contre l'API en cours d'exécution (bun run server) et sa base Postgres.
 const BASE = process.env.TEST_API ?? 'http://localhost:3001'
@@ -14,8 +16,9 @@ const rnd = () => crypto.randomUUID().replace(/-/g, '')
 class Client {
   cookie = ''
   userId = ''
+  constructor(private base = BASE) {}
   async req(method: string, path: string, body?: unknown) {
-    const res = await fetch(BASE + path, {
+    const res = await fetch(this.base + path, {
       method,
       headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...(this.cookie ? { cookie: this.cookie } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -27,8 +30,8 @@ class Client {
   }
 }
 
-async function emailUser(): Promise<{ c: Client; email: string }> {
-  const c = new Client()
+async function emailUser(base = BASE): Promise<{ c: Client; email: string }> {
+  const c = new Client(base)
   const email = `test_${Date.now()}_${n++}@example.test`
   const r = await c.req('POST', '/auth/register', { email, password: 'motdepasse123' })
   expect(r.status).toBe(200)
@@ -70,6 +73,7 @@ afterAll(async () => {
   }
   if (taskIds.length) await sql`DELETE FROM tasks WHERE id IN ${sql(taskIds)}`
   if (contestIds.length) await sql`DELETE FROM contests WHERE id IN ${sql(contestIds)}`
+  await sql`DELETE FROM email_outbox WHERE to_email LIKE 'test\_%@example.test'`
   if (ids.length) {
     await sql`DELETE FROM reports WHERE reporter_id IN ${sql(ids)}`
     await sql`DELETE FROM notifications WHERE user_id IN ${sql(ids)}`
@@ -268,4 +272,103 @@ describe('preuves, signalements et modération', () => {
     const users = await admin.req('GET', '/admin/users')
     expect(users.body.items[0]).toHaveProperty('earned')
   })
+})
+
+const token = (mail: { body: string } | undefined, kind: 'verify' | 'reset') => mail?.body.match(new RegExp(`\\?${kind}=([0-9a-f]{64})`))?.[1] ?? ''
+
+describe('e-mails : confirmation, mot de passe oublié, notifications', () => {
+  test('confirmation d\'adresse : un seul usage, jeton inventé refusé', async () => {
+    const { c, email } = await emailUser()
+    const mail = (await outboxFor(email)).find((m) => /Confirm your email/.test(m.subject))
+    expect(mail).toBeDefined()
+    const t = token(mail, 'verify')
+    expect(t).toHaveLength(64)
+    expect((await c.req('GET', '/me')).body.user.emailVerified).toBe(false)
+    expect((await c.req('POST', '/auth/verify', { token: 'a'.repeat(64) })).status).toBe(400)
+    expect((await c.req('POST', '/auth/verify', { token: t })).status).toBe(200)
+    expect((await c.req('GET', '/me')).body.user.emailVerified).toBe(true)
+    expect((await c.req('POST', '/auth/verify', { token: t })).status).toBe(400)
+    expect((await c.req('POST', '/auth/resend-verification', {})).body.alreadyVerified).toBe(true)
+  })
+
+  test('mot de passe oublié : réponse identique, lien à usage unique, anciennes sessions coupées', async () => {
+    const { c, email } = await emailUser()
+    const ghost = `test_ghost_${Date.now()}@example.test`
+    const a = await new Client().req('POST', '/auth/forgot', { email })
+    const b = await new Client().req('POST', '/auth/forgot', { email: ghost })
+    expect(a.status).toBe(200)
+    expect(b.body).toEqual(a.body)
+    expect((await outboxFor(ghost)).length).toBe(0)
+
+    const t = token((await outboxFor(email)).find((m) => /Reset your/.test(m.subject)), 'reset')
+    expect(t).toHaveLength(64)
+    expect((await new Client().req('POST', '/auth/reset', { token: t, password: 'court' })).status).toBe(400)
+    expect((await new Client().req('POST', '/auth/reset', { token: 'b'.repeat(64), password: 'nouveau-mot-de-passe' })).status).toBe(400)
+    expect((await new Client().req('POST', '/auth/reset', { token: t, password: 'nouveau-mot-de-passe' })).status).toBe(200)
+    // le lien ne marche qu'une fois ; l'ancien mot de passe et l'ancienne session ne marchent plus
+    expect((await new Client().req('POST', '/auth/reset', { token: t, password: 'encore-un-autre' })).status).toBe(400)
+    expect((await new Client().req('POST', '/auth/login', { email, password: 'motdepasse123' })).status).toBe(401)
+    expect((await new Client().req('POST', '/auth/login', { email, password: 'nouveau-mot-de-passe' })).status).toBe(200)
+    expect((await c.req('GET', '/me')).body.user).toBeNull()
+  })
+
+  test('un nouveau lien annule le précédent ; un lien expiré est refusé ; trop de demandes bloquées', async () => {
+    const { email } = await emailUser()
+    const k = new Client()
+    await k.req('POST', '/auth/forgot', { email })
+    const first = token((await outboxFor(email)).filter((m) => /Reset your/.test(m.subject)).slice(-1)[0], 'reset')
+    await k.req('POST', '/auth/forgot', { email })
+    const second = token((await outboxFor(email)).filter((m) => /Reset your/.test(m.subject)).slice(-1)[0], 'reset')
+    expect(second).not.toBe(first)
+    expect((await k.req('POST', '/auth/reset', { token: first, password: 'nouveau-mot-de-passe' })).status).toBe(400)
+    await sql`UPDATE email_tokens SET expires_at = now() - interval '1 minute' WHERE user_id = (SELECT id FROM users WHERE email = ${email}) AND kind = 'reset'`
+    expect((await k.req('POST', '/auth/reset', { token: second, password: 'nouveau-mot-de-passe' })).status).toBe(400)
+    await k.req('POST', '/auth/forgot', { email })
+    expect((await k.req('POST', '/auth/forgot', { email })).status).toBe(429)
+  })
+
+  test('e-mail de notification : seulement si l\'adresse est confirmée et l\'option activée', async () => {
+    const { c, email } = await emailUser()
+    const uid = c.userId
+    const count = async () => (await outboxFor(email)).filter((m) => m.subject === 'Payment received').length
+    await notify(uid, 'paid', 'Payment received', '0.05 USDC were added to your balance.')
+    await Bun.sleep(300)
+    expect(await count()).toBe(0)
+    await sql`UPDATE users SET email_verified_at = now() WHERE id = ${uid}`
+    await notify(uid, 'paid', 'Payment received', '0.05 USDC were added to your balance.')
+    await Bun.sleep(300)
+    expect(await count()).toBe(1)
+    expect((await c.req('POST', '/me/settings', { emailNotifications: false })).status).toBe(200)
+    await notify(uid, 'paid', 'Payment received', '0.05 USDC were added to your balance.')
+    await Bun.sleep(300)
+    expect(await count()).toBe(1)
+    expect((await c.req('POST', '/me/settings', { emailNotifications: 'oui' })).status).toBe(400)
+  })
+
+  test('avec l\'envoi d\'e-mails actif : publier ou soumettre exige une adresse confirmée', async () => {
+    const port = 3099
+    const proc = Bun.spawn(['bun', 'run', 'server/index.ts'], { env: { ...process.env, API_PORT: String(port), PORT: String(port), REQUIRE_EMAIL_VERIFICATION: '1' }, stdout: 'ignore', stderr: 'ignore' })
+    try {
+      const base = `http://localhost:${port}`
+      for (let i = 0; i < 40; i++) { if ((await fetch(base + '/me').catch(() => null))?.ok) break; await Bun.sleep(250) }
+      const { c, email } = await emailUser(base)
+      const { c: creator } = await walletUser()
+      const taskId = await insertTask(creator.userId)
+      expect((await c.req('GET', '/me')).body.user.verificationRequired).toBe(true)
+      const blocked = await c.req('POST', `/tasks/${taskId}/claim-permit`, { proofUrl: 'https://example.com/p' })
+      expect(blocked.status).toBe(403)
+      expect(blocked.body.error).toMatch(/Verify your email/)
+      expect((await c.req('POST', '/tasks', {})).status).toBe(403)
+      expect((await c.req('POST', '/contests', {})).status).toBe(403)
+      const t = token((await outboxFor(email)).find((m) => /Confirm your email/.test(m.subject)), 'verify')
+      expect((await c.req('POST', '/auth/verify', { token: t })).status).toBe(200)
+      // une fois confirmée, la demande passe l'étape de vérification (elle est ensuite refusée pour une autre raison : pas de portefeuille lié)
+      const after = await c.req('POST', `/tasks/${taskId}/claim-permit`, { proofUrl: 'https://example.com/p' })
+      expect(after.status).toBe(400)
+      expect(after.body.error).toMatch(/Link a wallet/)
+      // un compte portefeuille n'est pas concerné
+      const w = await walletUser()
+      expect((await w.c.req('POST', '/tasks/' + taskId + '/claim-permit', {})).status).not.toBe(403)
+    } finally { proc.kill() }
+  }, 30_000)
 })

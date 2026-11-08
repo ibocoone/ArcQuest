@@ -1,3 +1,4 @@
+import EmailSection from './EmailSection'
 import { useState } from 'react'
 import { CheckCircle2, LogOut, Wallet } from 'lucide-react'
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi'
@@ -130,6 +131,7 @@ export default function SettingsPage() {
         <Row label="Referral code" value={user.referralCode} mono />
       </Card>
       <WalletSection />
+      <EmailSection />
       {user.email && <PasswordSection />}
       <button onClick={() => void logout()} className="w-full min-h-[44px] rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
         style={{ background: 'rgba(186,43,76,0.08)', border: '1px solid rgba(186,43,76,0.15)', color: 'var(--danger)' }}>

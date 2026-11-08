@@ -10,22 +10,32 @@ import EarningsPage from './components/EarningsPage'
 import ReferralsPage from './components/ReferralsPage'
 import ContestsPage from './components/ContestsPage'
 import SettingsPage from './components/SettingsPage'
+import HelpPage from './components/HelpPage'
 import SupportPage from './components/SupportPage'
+import { clearSharedTask, getLink, getSharedTask } from './lib/deeplink'
+import { ResetPasswordPage, VerifyEmailPage } from './components/AccountLinkPage'
+import VerifyBanner from './components/VerifyBanner'
 import AdminPage from './components/AdminPage'
 import { Loading } from './ui'
 
 type Legal = 'terms' | 'privacy'
-const PAGES: Page[] = ['dashboard', 'jobs', 'wallet', 'earnings', 'referrals', 'contests', 'support', 'settings', 'admin']
+const PAGES: Page[] = ['dashboard', 'jobs', 'wallet', 'earnings', 'referrals', 'contests', 'help', 'support', 'settings', 'admin']
 
 function AppShell() {
   const { user, isLoading } = useAuth()
-  const [page, setPage] = useState<Page>('dashboard')
+  const [shared, setShared] = useState<string | null>(() => getSharedTask())
+  const [page, setPage] = useState<Page>(() => (getSharedTask() ? 'jobs' : 'dashboard'))
   const [tab, setTab] = useState<string | undefined>()
   const [legal, setLegal] = useState<Legal | null>(null)
+  const [resetToken, setResetToken] = useState<string | null>(() => getLink('reset'))
+  const [verifyToken, setVerifyToken] = useState<string | null>(() => getLink('verify'))
+  const [afterReset, setAfterReset] = useState(false)
 
+  if (resetToken) return <ResetPasswordPage token={resetToken} onDone={() => { setResetToken(null); setAfterReset(true) }} />
+  if (verifyToken) return <VerifyEmailPage token={verifyToken} onDone={() => setVerifyToken(null)} />
   if (legal) return <LegalPage kind={legal} onBack={() => setLegal(null)} />
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center"><Loading /></div>
-  if (!user) return <AuthPage onOpenLegal={setLegal} />
+  if (!user) return <AuthPage onOpenLegal={setLegal} startMode={afterReset ? 'login' : 'register'} />
 
   // "jobs:mine" ouvre la page Tasks sur l'onglet "mine"
   const navigate = (target: string) => {
@@ -35,11 +45,12 @@ function AppShell() {
 
   const content = () => {
     switch (page) {
-      case 'jobs': return <JobsPage initialTab={tab} />
+      case 'jobs': return <JobsPage initialTab={tab} sharedTask={shared} onDismissShared={() => { clearSharedTask(); setShared(null) }} />
       case 'contests': return <ContestsPage initialTab={tab} />
       case 'wallet': return <WalletPage initialTab={tab} />
       case 'earnings': return <EarningsPage onNavigate={navigate} />
       case 'referrals': return <ReferralsPage />
+      case 'help': return <HelpPage onNavigate={navigate} />
       case 'support': return <SupportPage />
       case 'settings': return <SettingsPage />
       case 'admin': return user.role === 'admin' ? <AdminPage /> : <DashboardHome onNavigate={navigate} />
@@ -49,6 +60,7 @@ function AppShell() {
 
   return (
     <Layout currentPage={page} onNavigate={navigate} onOpenLegal={setLegal}>
+      <VerifyBanner />
       {content()}
     </Layout>
   )

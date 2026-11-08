@@ -1,6 +1,6 @@
 import { one, rows, sql } from '../db'
 import {
-  HttpError, amount, audit, httpUrl, optStr, rateLimit, route, str, txHash, uuid, type AuthUser,
+  HttpError, amount, audit, httpUrl, optStr, rateLimit, requireVerified, route, str, txHash, uuid, type AuthUser,
 } from '../http'
 import { signClaimPermit, toRaw, verifyJobCreated } from '../chain'
 import { syncSubmission } from '../submissions'
@@ -95,6 +95,7 @@ route('GET', '/tasks/:id', 'user', async (c) => {
 
 route('POST', '/tasks', 'user', async (c) => {
   const me = c.user as AuthUser
+  requireVerified(me)
   const b = await c.json()
   rateLimit(`task:${me.id}`, 20, 3_600_000)
   const id = uuid(b.id, 'ID')
@@ -143,6 +144,7 @@ const ACTIVE = sql`(s.status IN ('pending','approved','rejected','disputed','spl
 /** Étape 1 : le serveur vérifie les règles et remet au travailleur une autorisation signée pour enregistrer sa soumission dans le contrat. */
 route('POST', '/tasks/:id/claim-permit', 'user', async (c) => {
   const me = c.user as AuthUser
+  requireVerified(me)
   const taskId = uuid(c.params.id, 'Task')
   const b = await c.json()
   rateLimit(`submit:${me.id}`, 60, 3_600_000)

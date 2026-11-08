@@ -6,13 +6,14 @@ Built with [Arc Studio](https://studio.arc.io)
 
 ## Features
 
-- Accounts with email and password, or with a wallet signature. Server-side sessions.
+- Accounts with email and password, or with a wallet signature. Server-side sessions. Email accounts confirm their address, can reset a forgotten password by email, and can receive email notifications.
 - Tasks and contests shared between all users, with search, filters and pagination.
 - One submission per person per task, places counted down, deadline, required proof (link or screenshot), reason given for any rejection. A worker registers the submission in the contract with a permit signed by the server.
 - Worker protection: the creator has 1 to 14 days (default 3) to approve or reject. If they do nothing, the worker is paid automatically. A rejection can be disputed within 7 days; an arbiter wallet then pays the worker or refunds the creator. With no decision after 14 days, the reward is split 50/50.
 - Deposit, withdrawal and recovery of unused funds; wallet history recorded by the server after verifying each transaction onchain.
 - In-app notifications, reports, a support page (Telegram and X), and an admin area (finances, disputes, moderation, accounts, payments, action log).
 - Terms of Use and Privacy Policy pages (templates to be reviewed by a lawyer).
+- A "How it works" page (steps, FAQ, how to add Arc Testnet and get free test USDC), a "Get started" checklist on the dashboard, and a "Copy link" button on every task.
 
 ## Tech stack
 
@@ -40,6 +41,9 @@ bunx vite build --outDir web --emptyOutDir   # production build of the app
 - `COOKIE_SECURE`: `true` in production over HTTPS.
 - `VITE_VAULT_ADDRESS`: address of the ArcQuestVault contract on Arc Testnet.
 - `CLAIM_SIGNER_PRIVATE_KEY`: private key of the server's claim signer (secret, server only). The contract only accepts submissions authorised by this key. It can never move funds. If it leaks, the arbiter rotates it with `setClaimSigner`.
+- `PUBLIC_URL`: public address of the site, used in the links sent by email (required in production).
+- `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME`: email sending through Brevo (`EMAIL_FROM` must be a sender verified in Brevo). Without them no email is sent. When they are set, email accounts must confirm their address before publishing or submitting.
+- `REQUIRE_EMAIL_VERIFICATION`: set to `1` to require email confirmation even when no provider is configured (tests and development).
 - `VITE_VAULT_DEPLOY_BLOCK`: deployment block of the contract.
 - `RPC_URL_Arc_Testnet`: optional RPC provider URL used by the server for its onchain checks. Never put it in a `VITE_` variable.
 - `RPC_PROXY_BASE_URL`, `RPC_PROXY_TOKEN`, `RPC_PROXY_CHAINS`: provided by Arc Studio, optional elsewhere (the public RPC is used otherwise).
@@ -71,6 +75,6 @@ Two free services are enough:
 
 Before pushing an interface change to GitHub, rebuild the app with `bunx vite build --outDir web --emptyOutDir`: the `web` folder is part of the repository and Render copies it as is.
 
-Render service variables: `DATABASE_URL` (Neon address), `CLAIM_SIGNER_PRIVATE_KEY`, `ADMIN_WALLETS` or `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` (already in `render.yaml`).
+Render service variables: `DATABASE_URL` (Neon address), `CLAIM_SIGNER_PRIVATE_KEY`, `ADMIN_WALLETS` or `ADMIN_EMAILS`, `COOKIE_SECURE=true`, `VITE_VAULT_ADDRESS` and `PUBLIC_URL` (already in `render.yaml`). To send emails also add `BREVO_API_KEY` and `EMAIL_FROM` in the Render dashboard.
 
 On the free plan, Render puts the service to sleep after a while without traffic: the next request is slower.

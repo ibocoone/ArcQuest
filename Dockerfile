@@ -2,6 +2,7 @@
 #   docker build -t arcquest .
 # Le dossier web (interface déjà construite) est inclus dans le dépôt : lancez `bunx vite build --outDir web --emptyOutDir` avant de l'envoyer.
 FROM oven/bun:1
+ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production

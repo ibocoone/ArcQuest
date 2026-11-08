@@ -20,3 +20,5 @@ services:
         sync: false
       - key: CLAIM_SIGNER_PRIVATE_KEY
         sync: false
+      - key: PUBLIC_URL
+        value: "https://arcquest-api-trh8.onrender.com"

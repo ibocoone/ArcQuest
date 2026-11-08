@@ -43,6 +43,10 @@ export interface User {
   referralCode: string
   createdAt: string
   role: 'user' | 'admin'
+  /** null pour un compte sans e-mail (portefeuille) */
+  emailVerified: boolean | null
+  verificationRequired: boolean
+  emailNotifications: boolean
 }
 
 export const usdc = (v: string | number | null | undefined): string => {

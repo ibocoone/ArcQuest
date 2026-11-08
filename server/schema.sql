@@ -158,3 +158,25 @@ ALTER TABLE submissions ADD COLUMN IF NOT EXISTS permit_expires timestamptz;
 ALTER TABLE submissions ADD COLUMN IF NOT EXISTS claim_at timestamptz;
 ALTER TABLE submissions ADD COLUMN IF NOT EXISTS status_at timestamptz;
 CREATE INDEX IF NOT EXISTS submissions_open_idx ON submissions (status) WHERE status IN ('pending','rejected','disputed');
+
+-- E-mails : confirmation d'adresse, réinitialisation du mot de passe, notifications
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications boolean NOT NULL DEFAULT true;
+UPDATE users SET email_verified_at = created_at WHERE email IS NOT NULL AND email_verified_at IS NULL AND created_at < '2026-11-09';
+CREATE TABLE IF NOT EXISTS email_tokens (
+  token_hash text PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind text NOT NULL CHECK (kind IN ('verify','reset')),
+  email text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+-- Boîte d'envoi de développement : utilisée seulement quand aucun fournisseur n'est configuré hors production
+CREATE TABLE IF NOT EXISTS email_outbox (
+  id bigserial PRIMARY KEY,
+  to_email text NOT NULL,
+  subject text NOT NULL,
+  body text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
