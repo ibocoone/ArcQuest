@@ -1,7 +1,7 @@
 import { ArrowRight, Briefcase, Clock, Trophy, Users, Wallet } from 'lucide-react'
 import { TokenUSDC } from '@web3icons/react'
 import { useQuery } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { api } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { useVaultBalance } from '../hooks/useVault'
@@ -30,7 +30,7 @@ function Stat({ icon: Icon, label, value, sub }: { icon: React.ElementType; labe
 
 export default function DashboardHome({ onNavigate }: { onNavigate: (target: string) => void }) {
   const { user } = useAuth()
-  const { isConnected } = useAccount()
+  const { isConnected } = useWallet()
   const { balance } = useVaultBalance()
   const { data: s, isLoading } = useQuery({ queryKey: ['stats'], queryFn: () => api<Stats>('/me/stats') })
 

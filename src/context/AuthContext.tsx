@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDisconnect } from 'wagmi'
+import { usePasskey } from '../passkey/PasskeyContext'
 import { api, type User } from '../api'
 
 interface AuthContextValue {
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
   const { disconnect } = useDisconnect()
+  const passkey = usePasskey()
   const { data, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: () => api<{ user: User | null }>('/me'),
@@ -31,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await api('/auth/logout', { method: 'POST', body: {} }).catch(() => undefined)
     disconnect()
+    passkey.signOut()
     qc.clear()
     qc.setQueryData(['me'], { user: null })
   }

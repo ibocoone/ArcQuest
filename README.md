@@ -41,6 +41,7 @@ bunx vite build --outDir web --emptyOutDir   # production build of the app
 - `COOKIE_SECURE`: `true` in production over HTTPS.
 - `VITE_VAULT_ADDRESS`: address of the ArcQuestVault contract on Arc Testnet.
 - `CLAIM_SIGNER_PRIVATE_KEY`: private key of the server's claim signer (secret, server only). The contract only accepts submissions authorised by this key. It can never move funds. If it leaks, the arbiter rotates it with `setClaimSigner`.
+- `VITE_CLIENT_KEY`, `VITE_CLIENT_URL`: Circle Modular Wallets (passkey wallets, no browser extension, fees sponsored). Optional: the passkey option only appears when `VITE_CLIENT_KEY` is set. Passkeys are bound to one domain, so the Circle Console client key and passkey domain must be the public hostname of the site. These values are read at build time, so rebuild `web` after changing them.
 - `PUBLIC_URL`: public address of the site, used in the links sent by email (required in production).
 - `BREVO_API_KEY`, `EMAIL_FROM`, `EMAIL_FROM_NAME`: email sending through Brevo (`EMAIL_FROM` must be a sender verified in Brevo). Without them no email is sent. When they are set, email accounts must confirm their address before publishing or submitting.
 - `REQUIRE_EMAIL_VERIFICATION`: set to `1` to require email confirmation even when no provider is configured (tests and development).

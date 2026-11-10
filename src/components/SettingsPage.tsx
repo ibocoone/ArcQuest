@@ -1,8 +1,9 @@
 import EmailSection from './EmailSection'
 import { useState } from 'react'
 import { CheckCircle2, LogOut, Wallet } from 'lucide-react'
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { ConnectKitButton } from 'connectkit'
+import PasskeyBox from './PasskeyBox'
 import { toast } from 'sonner'
 import { api, fmtDate, walletMessage } from '../api'
 import { useAuth } from '../context/AuthContext'
@@ -19,9 +20,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 
 function WalletSection() {
   const { user, refresh } = useAuth()
-  const { address, isConnected } = useAccount()
-  const { signMessageAsync } = useSignMessage()
-  const { disconnect } = useDisconnect()
+  const { address, isConnected, signMessage, disconnect, passkeyEnabled } = useWallet()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,7 +30,7 @@ function WalletSection() {
     try {
       const { nonce } = await api<{ nonce: string }>('/auth/nonce')
       const message = walletMessage(address, nonce)
-      const signature = await signMessageAsync({ message })
+      const signature = await signMessage(message)
       await api('/me/wallet', { body: { address, message, signature } })
       await refresh()
       toast.success('Wallet linked to your account.')
@@ -54,7 +53,12 @@ function WalletSection() {
             <CheckCircle2 size={13} /> Your payments and publications use this wallet.
           </div>
           {mismatch && <ErrorBox message="The connected wallet is different from the one linked to your account. Switch accounts in your wallet to deposit, withdraw or publish." />}
-          {!isConnected && <ConnectKitButton />}
+          {!isConnected && (
+            <div className="space-y-3">
+              {passkeyEnabled && <PasskeyBox compact />}
+              <ConnectKitButton />
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -65,7 +69,12 @@ function WalletSection() {
             <button onClick={() => void link()} disabled={busy} className="w-full min-h-[44px] rounded-xl text-sm font-semibold" style={primaryBtn(busy)}>
               {busy ? 'Signing…' : `Link ${address.slice(0, 6)}…${address.slice(-4)}`}
             </button>
-          ) : <ConnectKitButton label="Connect a wallet" />}
+          ) : (
+            <div className="space-y-3">
+              {passkeyEnabled && <PasskeyBox compact />}
+              <ConnectKitButton label="Connect a wallet" />
+            </div>
+          )}
           {error && <ErrorBox message={error} />}
         </>
       )}

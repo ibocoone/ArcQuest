@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Eye, EyeOff, LogIn, UserPlus, Mail, Wallet } from 'lucide-react'
 import { TokenUSDC } from '@web3icons/react'
-import { useAccount, useSignMessage } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { ConnectKitButton } from 'connectkit'
 import { toast } from 'sonner'
 import { api, walletMessage } from '../api'
@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { inputStyle } from '../ui'
 import { SUPPORT } from '../support'
 import ForgotForm from './ForgotForm'
+import PasskeyBox from './PasskeyBox'
 
 type Method = 'email' | 'wallet'
 type Mode = 'login' | 'register'
@@ -21,8 +22,7 @@ function initialRef(): string {
 
 export default function AuthPage({ onOpenLegal, startMode = 'register' }: { onOpenLegal: (p: 'terms' | 'privacy') => void; startMode?: Mode }) {
   const { refresh } = useAuth()
-  const { address, isConnected } = useAccount()
-  const { signMessageAsync } = useSignMessage()
+  const { address, isConnected, signMessage, passkeyEnabled } = useWallet()
 
   const [method, setMethod] = useState<Method>('email')
   const [mode, setMode] = useState<Mode>(startMode)
@@ -53,7 +53,7 @@ export default function AuthPage({ onOpenLegal, startMode = 'register' }: { onOp
     try {
       const { nonce } = await api<{ nonce: string }>('/auth/nonce')
       const message = walletMessage(address, nonce)
-      const signature = await signMessageAsync({ message })
+      const signature = await signMessage(message)
       await api('/auth/wallet', { body: { address, message, signature, referralCode: referral || undefined } })
       await refresh()
     } catch (err) {
@@ -136,7 +136,11 @@ export default function AuthPage({ onOpenLegal, startMode = 'register' }: { onOp
                 Connect your wallet and sign a message to prove you own it. No transaction and no fees. An account is created the first time you sign in.
               </p>
               {!isConnected ? (
-                <div className="flex justify-center"><ConnectKitButton label="Connect wallet" /></div>
+                <div className="space-y-4">
+                  {passkeyEnabled && <PasskeyBox />}
+                  {passkeyEnabled && <p className="text-xs text-center" style={{ color: '#8a849c' }}>Or use a wallet you already have</p>}
+                  <div className="flex justify-center"><ConnectKitButton label="Connect wallet" /></div>
+                </div>
               ) : (
                 <>
                   <div className="mono text-xs rounded-xl px-3 py-2.5 truncate" style={{ background: 'rgba(26,47,110,0.05)', color: '#0f1c35' }}>{address}</div>

@@ -1,4 +1,4 @@
-import { createPublicClient, erc20Abi, http, keccak256, parseAbiItem, parseEventLogs, parseUnits, stringToBytes, type Hex } from 'viem'
+import { createPublicClient, erc20Abi, http, keccak256, parseAbiItem, parseEventLogs, parseUnits, stringToBytes, verifyMessage, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { getChain, getUsdc, USDC_DECIMALS } from '../src/onchain-facts'
 import { HttpError } from './http'
@@ -163,4 +163,16 @@ export async function activityFromTx(hash: Hex, wallet: string): Promise<Activit
   const block = await client.getBlock({ blockNumber: receipt.blockNumber })
   const at = new Date(Number(block.timestamp) * 1000)
   return out.map((e) => ({ ...e, at }))
+}
+
+/** Vérifie la signature d'un message : portefeuille classique (EOA) d'abord, puis compte intelligent (ERC-1271 / ERC-6492) lu sur la chaîne. */
+export async function verifyWalletSignature(address: Hex, message: string, signature: Hex): Promise<boolean> {
+  try {
+    if (await verifyMessage({ address, message, signature })) return true
+  } catch { /* pas une signature EOA : on essaie le compte intelligent */ }
+  try {
+    return await client.verifyMessage({ address, message, signature })
+  } catch {
+    return false
+  }
 }

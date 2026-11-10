@@ -1,10 +1,11 @@
-import { useAccount, usePublicClient, useReadContract, useWriteContract } from 'wagmi'
+import { usePublicClient, useReadContract, useWriteContract } from 'wagmi'
 import { erc20Abi, keccak256, stringToBytes } from 'viem'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../api'
 import { getUsdc, buildTxExplorerUrl } from '@/onchain-facts'
 import { Amount, parseAmount, usdcDecimalsFor } from '@/onchain-money'
 import { ARC_TESTNET_ID, VAULT_ADDRESS, jobAbi, vaultAbi } from '@/contracts/vault'
+import { useWallet } from './useWallet'
 
 /** Identifiant onchain d'une tâche ou d'un concours à partir de son id applicatif. */
 export function taskIdOf(id: string): `0x${string}` {
@@ -13,7 +14,7 @@ export function taskIdOf(id: string): `0x${string}` {
 
 /** Solde du portefeuille connecté dans le coffre, en USDC. */
 export function useVaultBalance() {
-  const { address } = useAccount()
+  const { address } = useWallet()
   const { data, refetch } = useReadContract({
     address: VAULT_ADDRESS,
     abi: vaultAbi,
@@ -43,10 +44,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   })
 }
 
+interface WriteRequest { address: `0x${string}`; abi: unknown; functionName: string; args: unknown[]; chainId?: number }
+
 export function useVaultActions() {
-  const { address } = useAccount()
+  const wallet = useWallet()
+  const address = wallet.address
   const publicClient = usePublicClient({ chainId: ARC_TESTNET_ID })
   const { writeContractAsync } = useWriteContract()
+
+  /** Envoie une transaction : par le portefeuille externe, ou par opération sponsorisée pour un portefeuille à passkey. */
+  const write = async (req: WriteRequest): Promise<`0x${string}`> => {
+    if (wallet.kind === 'passkey') {
+      return wallet.sendPasskey([{ to: req.address, abi: req.abi, functionName: req.functionName, args: req.args }])
+    }
+    return writeContractAsync(req as unknown as Parameters<typeof writeContractAsync>[0])
+  }
   const qc = useQueryClient()
   const usdc = getUsdc(ARC_TESTNET_ID)
 
@@ -69,6 +81,16 @@ export function useVaultActions() {
   const deposit = async (amount: string, onStep?: (step: DepositStep) => void) => {
     const { vault, token, owner, client } = ready()
     const raw = parseAmount(ARC_TESTNET_ID, amount).raw
+    if (wallet.kind === 'passkey') {
+      // un seul geste avec le passkey : autorisation exacte puis dépôt, frais pris en charge
+      onStep?.('deposit')
+      const batch = await wallet.sendPasskey([
+        { to: token, abi: erc20Abi, functionName: 'approve', args: [vault, raw] },
+        { to: vault, abi: vaultAbi, functionName: 'deposit', args: [raw] },
+      ])
+      onStep?.('confirming')
+      return confirm(batch)
+    }
     onStep?.('checking')
     // Si le RPC public est lent ou refuse la lecture, on ne bloque pas : on demande simplement l'autorisation.
     let allowance = 0n
@@ -80,12 +102,12 @@ export function useVaultActions() {
     if (allowance < raw) {
       onStep?.('approve')
       // approbation exacte du montant, jamais illimitée
-      const approval = await writeContractAsync({ address: token, abi: erc20Abi, functionName: 'approve', args: [vault, raw], chainId: ARC_TESTNET_ID })
+      const approval = await write({ address: token, abi: erc20Abi, functionName: 'approve', args: [vault, raw], chainId: ARC_TESTNET_ID })
       onStep?.('approving')
       await confirm(approval)
     }
     onStep?.('deposit')
-    const hash = await writeContractAsync({ address: vault, abi: vaultAbi, functionName: 'deposit', args: [raw], chainId: ARC_TESTNET_ID })
+    const hash = await write({ address: vault, abi: vaultAbi, functionName: 'deposit', args: [raw], chainId: ARC_TESTNET_ID })
     onStep?.('confirming')
     return confirm(hash)
   }
@@ -93,13 +115,13 @@ export function useVaultActions() {
   const withdraw = async (amount: string) => {
     const { vault } = ready()
     const raw = parseAmount(ARC_TESTNET_ID, amount).raw
-    return confirm(await writeContractAsync({ address: vault, abi: vaultAbi, functionName: 'withdraw', args: [raw], chainId: ARC_TESTNET_ID }))
+    return confirm(await write({ address: vault, abi: vaultAbi, functionName: 'withdraw', args: [raw], chainId: ARC_TESTNET_ID }))
   }
 
   /** Réserve `raw` (unités USDC) du solde pour la tâche/concours `appId`, remboursable après `refundableAfter` (secondes Unix). */
   const fundTask = async (appId: string, raw: bigint, refundableAfter: number) => {
     const { vault } = ready()
-    return confirm(await writeContractAsync({
+    return confirm(await write({
       address: vault, abi: vaultAbi, functionName: 'fundTask',
       args: [taskIdOf(appId), raw, BigInt(refundableAfter)], chainId: ARC_TESTNET_ID,
     }))
@@ -109,7 +131,7 @@ export function useVaultActions() {
   const releaseReward = async (appId: string, worker: `0x${string}`, amount: string) => {
     const { vault } = ready()
     const raw = parseAmount(ARC_TESTNET_ID, amount).raw
-    return confirm(await writeContractAsync({
+    return confirm(await write({
       address: vault, abi: vaultAbi, functionName: 'releaseReward',
       args: [taskIdOf(appId), worker, raw], chainId: ARC_TESTNET_ID,
     }))
@@ -118,7 +140,7 @@ export function useVaultActions() {
   /** Récupère `raw` de la réserve de `appId` (possible après la date de déverrouillage). */
   const refundTask = async (appId: string, raw: bigint) => {
     const { vault } = ready()
-    return confirm(await writeContractAsync({
+    return confirm(await write({
       address: vault, abi: vaultAbi, functionName: 'refundTask', args: [taskIdOf(appId), raw], chainId: ARC_TESTNET_ID,
     }))
   }
@@ -128,8 +150,8 @@ export function useVaultActions() {
     functionName: F, args: unknown[],
   ) => {
     const { vault } = ready()
-    const request = { address: vault, abi: jobAbi, functionName, args, chainId: ARC_TESTNET_ID } as unknown as Parameters<typeof writeContractAsync>[0]
-    const hash = await writeContractAsync(request)
+    const request: WriteRequest = { address: vault, abi: jobAbi, functionName, args, chainId: ARC_TESTNET_ID }
+    const hash = await write(request)
     return confirm(hash)
   }
   const createJob = (appId: string, rewardRaw: bigint, slots: number, deadline: number, reviewDays: number) =>
@@ -205,7 +227,7 @@ export function toRawUsdc(amount: string): bigint {
 
 /** Connexion du portefeuille au bon compte : le contrat agit sur l'adresse connectée. */
 export function useWalletMatch(linked: string | null | undefined) {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected } = useWallet()
   return {
     isConnected,
     linked: !!linked,

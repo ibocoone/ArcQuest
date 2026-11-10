@@ -24,6 +24,7 @@ import App from './App'
 import './index.css'
 import { installShareSync } from './lib/share'
 import { captureDeepLink } from './lib/deeplink'
+import { PasskeyProvider } from './passkey/PasskeyContext'
 
 installShareSync()
 captureDeepLink()
@@ -76,7 +77,9 @@ createRoot(document.getElementById('root')!).render(
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider>
-          <App />
+          <PasskeyProvider>
+            <App />
+          </PasskeyProvider>
           <StudioWatermark />
           <Toaster position="top-center" />
         </ConnectKitProvider>

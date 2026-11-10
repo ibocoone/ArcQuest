@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, Copy, ExternalLink, PlusCircle } from 'lucide-react'
-import { useAccount, useSwitchChain } from 'wagmi'
+import { useSwitchChain } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { toast } from 'sonner'
 import { getChain } from '@/onchain-facts'
 import { ARC_TESTNET_ID } from '@/contracts/vault'
@@ -64,7 +65,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
 
 export default function HelpPage({ onNavigate }: { onNavigate: (target: string) => void }) {
   const { user } = useAuth()
-  const { address } = useAccount()
+  const { address } = useWallet()
   const { switchChainAsync } = useSwitchChain()
   const [open, setOpen] = useState<number | null>(0)
   const chain = getChain(ARC_TESTNET_ID)

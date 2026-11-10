@@ -4,7 +4,8 @@ import {
   Inbox, PlusCircle, MinusCircle, History, ShieldCheck,
 } from 'lucide-react'
 import { TokenUSDC } from '@web3icons/react'
-import { useAccount, useDisconnect, useReadContract } from 'wagmi'
+import { useReadContract } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { erc20Abi } from 'viem'
 import { ConnectKitButton } from 'connectkit'
 import { getUsdc } from '@/onchain-facts'
@@ -27,8 +28,7 @@ const glass: React.CSSProperties = {
 type Tab = 'deposit' | 'withdraw' | 'history'
 
 export default function WalletPage({ initialTab }: { initialTab?: string }) {
-  const { address, isConnected } = useAccount()
-  const { disconnect } = useDisconnect()
+  const { address, isConnected, disconnect } = useWallet()
   const history = useVaultHistory()
   const events = history.data ?? []
   const vault = useVaultBalance()

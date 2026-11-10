@@ -1,4 +1,4 @@
-import { useAccount } from 'wagmi'
+import { useWallet } from './useWallet'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api'
 
@@ -28,7 +28,7 @@ const KINDS: Record<string, { label: string; incoming: boolean }> = {
  * par le navigateur : le RPC public refuse les grandes plages et bloque vite les rafales de requêtes.
  */
 export function useVaultHistory() {
-  const { address } = useAccount()
+  const { address } = useWallet()
   return useQuery({
     queryKey: ['activity', address],
     enabled: !!address,

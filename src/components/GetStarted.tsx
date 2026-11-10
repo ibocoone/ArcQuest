@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { erc20Abi } from 'viem'
-import { useAccount, useReadContract } from 'wagmi'
+import { useReadContract } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { getUsdc } from '@/onchain-facts'
 import { ARC_TESTNET_ID } from '@/contracts/vault'
 import { useAuth } from '../context/AuthContext'
@@ -18,7 +19,7 @@ interface Props {
 /** Liste de départ pour un nouvel utilisateur : disparaît quand tout est fait ou si on la ferme. */
 export default function GetStarted({ stats, onNavigate }: Props) {
   const { user } = useAuth()
-  const { address } = useAccount()
+  const { address } = useWallet()
   const { balance } = useVaultBalance()
   const [hidden, setHidden] = useState(() => localStorage.getItem(DISMISS_KEY) === '1')
   const usdc = getUsdc(ARC_TESTNET_ID)

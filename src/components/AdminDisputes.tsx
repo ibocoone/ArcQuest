@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ExternalLink, Gavel } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAccount } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { toast } from 'sonner'
 import { api, fmtDate, uploadUrl, usdc } from '../api'
 import { ARBITER_TIMEOUT_SECONDS } from '@/contracts/vault'
@@ -80,7 +80,7 @@ function Item({ d, isArbiter }: { d: Dispute; isArbiter: boolean }) {
 
 export default function AdminDisputes() {
   const arbiter = useArbiter()
-  const { address } = useAccount()
+  const { address } = useWallet()
   const isArbiter = !!arbiter && !!address && arbiter.toLowerCase() === address.toLowerCase()
   const { data, isLoading, error } = useQuery({ queryKey: ['admin-disputes'], queryFn: () => api<{ items: Dispute[] }>('/admin/disputes'), refetchInterval: 30_000 })
   if (isLoading) return <Loading />

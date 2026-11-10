@@ -1,4 +1,5 @@
-import { isAddress, verifyMessage } from 'viem'
+import { isAddress } from 'viem'
+import { verifyWalletSignature } from '../chain'
 import { one, sql } from '../db'
 import { sendVerification } from '../email'
 import { COOKIE, baseUrl, HttpError, createSession, publicUser, rateLimit, route, sha256, str, type AuthUser } from '../http'
@@ -41,7 +42,7 @@ async function checkWalletProof(body: Record<string, unknown>): Promise<string> 
   if (!nonce || claimed?.toLowerCase() !== address.toLowerCase()) throw new HttpError(400, 'Invalid sign-in message.')
   const used = await one(sql`DELETE FROM nonces WHERE nonce = ${nonce} AND expires_at > now() RETURNING nonce`)
   if (!used) throw new HttpError(400, 'Message expired. Please try again.')
-  const valid = await verifyMessage({ address, message, signature: signature as `0x${string}` }).catch(() => false)
+  const valid = await verifyWalletSignature(address as `0x${string}`, message, signature as `0x${string}`)
   if (!valid) throw new HttpError(401, 'Invalid signature.')
   return address.toLowerCase()
 }

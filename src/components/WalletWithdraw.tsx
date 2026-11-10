@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { MinusCircle, Info, AlertCircle, Inbox, CheckCircle2, ExternalLink } from 'lucide-react'
 import { TokenUSDC } from '@web3icons/react'
-import { useAccount, useSwitchChain } from 'wagmi'
+import { useSwitchChain } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { ConnectKitButton } from 'connectkit'
 import { toast } from 'sonner'
 import { ARC_TESTNET_ID, VAULT_ADDRESS } from '@/contracts/vault'
@@ -9,7 +10,7 @@ import { explorerTx, useVaultActions, useVaultBalance } from '../hooks/useVault'
 import { useQueryClient } from '@tanstack/react-query'
 
 export default function WalletWithdraw() {
-  const { isConnected, chainId } = useAccount()
+  const { isConnected, chainId } = useWallet()
   const { switchChain } = useSwitchChain()
   const { balance, refetch } = useVaultBalance()
   const { withdraw } = useVaultActions()

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { PlusCircle, Info, AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react'
 import { TokenUSDC } from '@web3icons/react'
-import { useAccount, useSwitchChain } from 'wagmi'
+import { useSwitchChain } from 'wagmi'
+import { useWallet } from '../hooks/useWallet'
 import { ConnectKitButton } from 'connectkit'
 import { toast } from 'sonner'
 import { ARC_TESTNET_ID, VAULT_ADDRESS } from '@/contracts/vault'
@@ -20,7 +21,7 @@ const STEP_LABEL: Record<DepositStep, string> = {
 }
 
 export default function WalletDeposit({ walletBalance, onDone }: { walletBalance: string; onDone: () => void }) {
-  const { isConnected, chainId } = useAccount()
+  const { isConnected, chainId } = useWallet()
   const { switchChain } = useSwitchChain()
   const { deposit } = useVaultActions()
   const qc = useQueryClient()
