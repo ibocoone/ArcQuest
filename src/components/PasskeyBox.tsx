@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Fingerprint, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
+import { toPasskeyName } from '../passkey/circle'
 import { usePasskey } from '../passkey/PasskeyContext'
 import { inputStyle } from '../ui'
 
@@ -13,12 +14,13 @@ export default function PasskeyBox({ compact = false }: { compact?: boolean }) {
   const run = async (mode: 'register' | 'login') => {
     setBusy(mode)
     try {
-      if (mode === 'register') await pk.signUp(name.trim() || 'ArcQuest user')
+      if (mode === 'register') await pk.signUp(toPasskeyName(name))
       else await pk.signIn()
     } catch (err) {
       const msg = err instanceof Error ? `${err.name} ${err.message}` : ''
       if (/NotAllowed|cancel/i.test(msg)) toast.error('Passkey cancelled.')
       else if (/Security/i.test(msg)) toast.error('Passkeys are not available on this address.')
+      else if (/Invalid credentials/i.test(msg)) toast.error('Passkeys only work on the official site address. Open ArcQuest from its public address and try again.')
       else if (/InvalidState/i.test(msg)) toast.error('A passkey already exists here. Use "Use my passkey".')
       else toast.error(err instanceof Error && err.message ? err.message : 'Passkey wallet failed.')
     } finally { setBusy(null) }

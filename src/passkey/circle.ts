@@ -4,7 +4,17 @@ import type { P256Credential, SmartAccount } from 'viem/account-abstraction'
 /** Portefeuilles à passkey (Circle Modular Wallets). Désactivés tant que la clé client n'est pas renseignée. */
 const CLIENT_KEY = String(import.meta.env.VITE_CLIENT_KEY ?? '')
 const CLIENT_URL = String(import.meta.env.VITE_CLIENT_URL ?? '')
-export const passkeyEnabled = CLIENT_KEY.length > 0 && CLIENT_URL.length > 0
+/** Les passkeys sont liées à un domaine : on n'affiche l'option que sur l'adresse déclarée dans la console Circle. */
+const PASSKEY_DOMAIN = String(import.meta.env.VITE_PASSKEY_DOMAIN ?? '')
+const onAllowedDomain = PASSKEY_DOMAIN === '' || (typeof window !== 'undefined' && window.location.hostname === PASSKEY_DOMAIN)
+export const passkeyEnabled = CLIENT_KEY.length > 0 && CLIENT_URL.length > 0 && onAllowedDomain
+
+/** Circle exige 5 à 50 caractères parmi lettres, chiffres et _ @ . : + - (pas d'espace). Un suffixe aléatoire évite les doublons. */
+export function toPasskeyName(input: string): string {
+  const base = input.trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_@.:+-]/g, '').slice(0, 38) || 'arcquest'
+  const suffix = Array.from(crypto.getRandomValues(new Uint8Array(3)), (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${base}_${suffix}`.slice(0, 50)
+}
 
 const STORAGE = 'arcquest:passkey-credential'
 
