@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Check, ChevronDown, Copy, ExternalLink, PlusCircle } from 'lucide-react'
 import { useSwitchChain } from 'wagmi'
 import { useWallet } from '../hooks/useWallet'
+import { ARC_TESTNET_RPCS } from '../rpc'
 import { toast } from 'sonner'
 import { getChain } from '@/onchain-facts'
 import { ARC_TESTNET_ID } from '@/contracts/vault'
@@ -19,6 +20,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
   { q: 'What if my work is rejected unfairly?', a: 'You have 7 days to dispute. An arbiter looks at your proof and the creator’s reason, then either pays you or refunds the creator. If the arbiter does not decide within 14 days, the reward is split 50/50.' },
   { q: 'Why do I pay a small network fee?', a: 'Registering a submission and collecting a payment are transactions on Arc. The fee is paid in USDC and is only a fraction of a cent to a few cents.' },
   { q: 'How do I withdraw?', a: 'Go to Wallet, open Withdraw, enter an amount and confirm in your wallet. The USDC goes straight back to your wallet.' },
+  { q: 'My balance does not load, or my wallet cannot connect to Arc Testnet.', a: 'Some countries, including Mali, are refused by the main public Arc address (rpc.testnet.arc.io). ArcQuest tries several public addresses in turn, so the site still works. Your wallet app uses its own network address though: open your wallet network settings, edit Arc Testnet and use one of the RPC URLs listed in the Network details above (for example rpc.blockdaemon.testnet.arc.io).' },
   { q: 'I forgot my password.', a: 'On the sign-in page, tap Forgot your password? and enter your email. We send you a link to choose a new one. If you signed up with a wallet, there is no password: just sign in with the wallet.' },
   { q: 'Something went wrong. Who can help?', a: 'Open the Support page and message us on Telegram or X. Include your username and the transaction link if there is one.' },
 ]
@@ -134,7 +136,12 @@ export default function HelpPage({ onNavigate }: { onNavigate: (target: string) 
             <summary className="cursor-pointer min-h-[44px] flex items-center font-medium" style={{ color: 'var(--accent)' }}>Network details (to add it by hand)</summary>
             <div className="space-y-2 pt-2">
               <CopyField label="Network name" value="Arc Testnet" />
-              <CopyField label="RPC URL" value={chain.rpcUrls[0] ?? ''} />
+              <CopyField label="RPC URL (recommended)" value={ARC_TESTNET_RPCS[0]} />
+              <CopyField label="RPC URL (alternative 1)" value={ARC_TESTNET_RPCS[1]} />
+              <CopyField label="RPC URL (alternative 2)" value={ARC_TESTNET_RPCS[2]} />
+              <p className="text-xs text-pretty" style={{ color: 'var(--muted)' }}>
+                The main public address (rpc.testnet.arc.io) refuses some countries, including Mali. If your wallet cannot connect, use one of the addresses above in your wallet network settings.
+              </p>
               <CopyField label="Chain ID" value={String(ARC_TESTNET_ID)} />
               <CopyField label="Currency symbol" value="USDC" />
               <CopyField label="Block explorer" value={chain.explorerBase} />

@@ -22,10 +22,16 @@ export function useWallet() {
   const extAddr = ext.address?.toLowerCase()
 
   let kind: WalletKind | null = null
-  if (linked && pkAddr === linked) kind = 'passkey'
-  else if (linked && extAddr === linked) kind = 'external'
-  else if (ext.isConnected) kind = 'external'
+  if (linked) {
+    // Un compte lié à un portefeuille n'utilise jamais un autre portefeuille, même s'il est connecté
+    if (pkAddr === linked) kind = 'passkey'
+    else if (extAddr === linked) kind = 'external'
+  } else if (ext.isConnected) kind = 'external'
   else if (pk.address) kind = 'passkey'
+
+  // Un autre portefeuille que celui du compte est connecté
+  const foreign = linked && kind === null ? (ext.address ?? pk.address) : undefined
+  const mismatch = !!foreign
 
   const address: Hex | undefined = kind === 'passkey' ? pk.address : kind === 'external' ? ext.address : undefined
 
@@ -33,9 +39,16 @@ export function useWallet() {
     kind,
     address,
     isConnected: kind !== null,
+    mismatch,
+    foreignAddress: foreign,
+    linkedAddress: user?.walletAddress ?? undefined,
     chainId: kind === 'passkey' ? ARC_TESTNET_ID : ext.chainId,
     passkeyEnabled: pk.enabled,
-    disconnect: () => { if (kind === 'passkey') pk.signOut(); else disconnect() },
+    disconnect: () => {
+      if (kind === 'passkey') pk.signOut()
+      else if (kind === 'external') disconnect()
+      else { disconnect(); pk.signOut() }
+    },
     signMessage: async (message: string): Promise<Hex> => {
       if (kind === 'passkey' && pk.account) return pk.account.signMessage({ message })
       return signMessageAsync({ message })

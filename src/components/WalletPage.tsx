@@ -28,7 +28,7 @@ const glass: React.CSSProperties = {
 type Tab = 'deposit' | 'withdraw' | 'history'
 
 export default function WalletPage({ initialTab }: { initialTab?: string }) {
-  const { address, isConnected, disconnect } = useWallet()
+  const { address, isConnected, disconnect, mismatch, linkedAddress, foreignAddress } = useWallet()
   const history = useVaultHistory()
   const events = history.data ?? []
   const vault = useVaultBalance()
@@ -36,7 +36,7 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
   const [copied, setCopied] = useState(false)
 
   const usdc = getUsdc(ARC_TESTNET_ID)
-  const { data: rawBalance, refetch } = useReadContract({
+  const { data: rawBalance, refetch, isError: walletReadFailed } = useReadContract({
     address: usdc?.address as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
@@ -45,6 +45,10 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
     query: { enabled: !!address && !!usdc },
   })
   const walletBalance = rawBalance != null ? Amount.fromRaw(rawBalance, usdcDecimalsFor(ARC_TESTNET_ID)).toFixed(2) : '—'
+
+  const short = (a?: string) => (a ? `${a.slice(0, 6)}…${a.slice(-4)}` : '')
+  const readFailed = isConnected && (walletReadFailed || vault.isError)
+  const retryReads = () => { void refetch(); void vault.refetch() }
 
   const copyAddress = () => {
     if (!address) return
@@ -62,6 +66,18 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
 
   return (
     <div className="max-w-2xl space-y-5">
+      {mismatch && (
+        <div role="alert" className="rounded-xl p-4 text-sm text-pretty space-y-2" style={{ background: 'rgba(240,92,107,0.08)', border: '1px solid rgba(240,92,107,0.3)', color: '#7a1f2b' }}>
+          <div>This account is linked to <strong>{short(linkedAddress)}</strong>, but the connected wallet is <strong>{short(foreignAddress)}</strong>. Connect the linked wallet (in your wallet extension, or with its passkey), or disconnect this one.</div>
+          <button onClick={disconnect} className="min-h-[40px] px-4 rounded-lg font-semibold text-sm" style={{ background: 'white', border: '1px solid rgba(26,47,110,0.25)', color: '#1a2f6e' }}>Disconnect this wallet</button>
+        </div>
+      )}
+      {readFailed && (
+        <div role="alert" className="rounded-xl p-4 text-sm text-pretty flex flex-wrap items-center gap-3" style={{ background: 'rgba(255,205,131,0.18)', border: '1px solid rgba(214,158,46,0.4)', color: '#6b4a06' }}>
+          <span>Your balances could not be read from the network. This is a connection problem, not a problem with your funds.</span>
+          <button onClick={retryReads} className="min-h-[40px] px-4 rounded-lg font-semibold text-sm" style={{ background: 'white', border: '1px solid rgba(26,47,110,0.25)', color: '#1a2f6e' }}>Retry</button>
+        </div>
+      )}
       <div className="rounded-2xl p-6 relative overflow-hidden" style={{ background: 'var(--accent)', boxShadow: '0 12px 40px rgba(26,47,110,0.25)' }}>
         <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: 'linear-gradient(90deg, #5fbeff, #af8ff4, #f05c6b, #ffcd83, #7ef1b3)' }} />
         <div className="grid grid-cols-2 gap-4">
@@ -78,7 +94,7 @@ export default function WalletPage({ initialTab }: { initialTab?: string }) {
               <ShieldCheck size={14} className="text-white opacity-60" />
               <span className="text-xs font-semibold text-white opacity-60 uppercase tracking-wider">ArcQuest balance</span>
             </div>
-            <div className="display font-bold text-3xl tabular-nums text-white">${vault.balance.toFixed(2)}</div>
+            <div className="display font-bold text-3xl tabular-nums text-white">{isConnected && vault.loaded ? `$${vault.balance.toFixed(2)}` : "—"}</div>
             <div className="text-xs text-white opacity-40 mt-0.5">Available for tasks</div>
           </div>
         </div>

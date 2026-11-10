@@ -15,7 +15,7 @@ export function taskIdOf(id: string): `0x${string}` {
 /** Solde du portefeuille connecté dans le coffre, en USDC. */
 export function useVaultBalance() {
   const { address } = useWallet()
-  const { data, refetch } = useReadContract({
+  const { data, refetch, isError } = useReadContract({
     address: VAULT_ADDRESS,
     abi: vaultAbi,
     functionName: 'balanceOf',
@@ -24,7 +24,7 @@ export function useVaultBalance() {
     query: { enabled: !!VAULT_ADDRESS && !!address, refetchInterval: 15_000 },
   })
   const balance = data != null ? Number(Amount.fromRaw(data, usdcDecimalsFor(ARC_TESTNET_ID)).toFixed(6)) : 0
-  return { balance, refetch, available: !!VAULT_ADDRESS }
+  return { balance, refetch, isError, loaded: data != null, available: !!VAULT_ADDRESS }
 }
 
 export function explorerTx(hash: string): string {

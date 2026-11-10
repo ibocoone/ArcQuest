@@ -1,4 +1,4 @@
-import { createPublicClient, erc20Abi, http, keccak256, parseAbiItem, parseEventLogs, parseUnits, stringToBytes, verifyMessage, type Hex } from 'viem'
+import { createPublicClient, erc20Abi, fallback, http, keccak256, parseAbiItem, parseEventLogs, parseUnits, stringToBytes, verifyMessage, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { getChain, getUsdc, USDC_DECIMALS } from '../src/onchain-facts'
 import { HttpError } from './http'
@@ -6,19 +6,28 @@ import { HttpError } from './http'
 const CHAIN_ID = 5042002
 const VAULT = (process.env.VITE_VAULT_ADDRESS ?? '').toLowerCase()
 
-function rpcUrl(): string {
-  if (process.env.RPC_URL_Arc_Testnet) return process.env.RPC_URL_Arc_Testnet
-  const base = process.env.RPC_PROXY_BASE_URL
-  const chains = (process.env.RPC_PROXY_CHAINS ?? '').split(',')
-  if (base && chains.includes('Arc_Testnet')) {
-    return `${base}/api/rpc/Arc_Testnet?_rpc_token=${process.env.RPC_PROXY_TOKEN ?? ''}`
+/** Accès publics officiels (docs.arc.io) : le principal, puis les fournisseurs tiers, utilisés en secours. */
+const PUBLIC_RPCS = [
+  'https://rpc.testnet.arc.io',
+  'https://rpc.blockdaemon.testnet.arc.io',
+  'https://rpc.drpc.testnet.arc.io',
+  'https://rpc.quicknode.testnet.arc.io',
+]
+
+/** Liste ordonnée des accès à essayer : l'accès configuré (clé ou relais du bac à sable), puis les accès publics. */
+export function rpcUrls(): string[] {
+  const first: string[] = []
+  if (process.env.RPC_URL_Arc_Testnet) first.push(process.env.RPC_URL_Arc_Testnet)
+  else {
+    const base = process.env.RPC_PROXY_BASE_URL
+    const chains = (process.env.RPC_PROXY_CHAINS ?? '').split(',')
+    if (base && chains.includes('Arc_Testnet')) first.push(`${base}/api/rpc/Arc_Testnet?_rpc_token=${process.env.RPC_PROXY_TOKEN ?? ''}`)
   }
-  const url = getChain(CHAIN_ID)?.rpcUrls[0]
-  if (!url) throw new Error('Arc Testnet RPC not found')
-  return url
+  const fromFacts = getChain(CHAIN_ID)?.rpcUrls ?? []
+  return Array.from(new Set([...first, ...fromFacts, ...PUBLIC_RPCS]))
 }
 
-const client = createPublicClient({ transport: http(rpcUrl()) })
+const client = createPublicClient({ transport: fallback(rpcUrls().map((u) => http(u, { retryCount: 1, timeout: 8_000 }))) })
 
 const events = [
   parseAbiItem('event TaskFunded(bytes32 indexed taskId, address indexed funder, uint256 amount, uint64 refundableAfter)'),
