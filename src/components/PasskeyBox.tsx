@@ -10,14 +10,17 @@ export default function PasskeyBox({ compact = false }: { compact?: boolean }) {
   const pk = usePasskey()
   const [name, setName] = useState('')
   const [busy, setBusy] = useState<'register' | 'login' | null>(null)
+  const [problem, setProblem] = useState<string | null>(null)
 
   const run = async (mode: 'register' | 'login') => {
     setBusy(mode)
+    setProblem(null)
     try {
       if (mode === 'register') await pk.signUp(toPasskeyName(name))
       else await pk.signIn()
     } catch (err) {
       const msg = err instanceof Error ? `${err.name} ${err.message}` : ''
+      setProblem(`${mode === 'register' ? 'Creating the wallet' : 'Signing in with the passkey'} failed on ${window.location.host}: ${(err instanceof Error ? err.message : String(err)).slice(0, 220)}`)
       if (/NotAllowed|cancel/i.test(msg)) toast.error('Passkey cancelled.')
       else if (/Security/i.test(msg)) toast.error('Passkeys are not available on this address.')
       else if (/Invalid credentials/i.test(msg)) toast.error('Passkeys only work on the official site address. Open ArcQuest from its public address and try again.')
@@ -44,6 +47,7 @@ export default function PasskeyBox({ compact = false }: { compact?: boolean }) {
         style={{ background: 'white', color: '#1a2f6e', border: '1px solid rgba(26,47,110,0.2)' }}>
         <KeyRound size={16} /> {busy === 'login' ? 'Waiting for your device…' : 'Use my passkey'}
       </button>
+      {problem && <p className="text-xs text-pretty break-words" style={{ color: '#b91c1c' }}>{problem}</p>}
     </div>
   )
 }
