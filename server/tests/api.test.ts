@@ -327,6 +327,17 @@ describe('e-mails : confirmation, mot de passe oublié, notifications', () => {
     expect((await k.req('POST', '/auth/forgot', { email })).status).toBe(429)
   })
 
+  test('signature de portefeuille : une longue signature de compte intelligent n\'est plus refusée pour sa taille', async () => {
+    const c = new Client()
+    const { body: n } = await c.req('GET', '/auth/nonce')
+    const address = '0x' + '1'.repeat(40)
+    const message = `ArcQuest: proof of wallet ownership\nAddress: ${address}\nNonce: ${n.nonce}`
+    const r = await c.req('POST', '/auth/wallet', { address, message, signature: '0x' + 'ab'.repeat(1800) })
+    // rejetée parce que la signature est fausse, pas parce qu'elle est trop longue
+    expect(r.status).not.toBe(400)
+    expect(String(r.body.error)).toMatch(/Invalid signature/)
+  })
+
   test('diagnostic e-mail : réservé aux administrateurs, avec un message clair si rien n\'est configuré', async () => {
     const { c: user } = await emailUser()
     expect((await user.req('GET', '/admin/email-status')).status).toBe(403)

@@ -35,7 +35,7 @@ async function startSession(c: { setCookie: (v: string, s: number) => void }, us
 async function checkWalletProof(body: Record<string, unknown>): Promise<string> {
   const address = str(body.address, 42, 42, 'Address')
   const message = str(body.message, 10, 500, 'Message')
-  const signature = str(body.signature, 10, 300, 'Signature')
+  const signature = str(body.signature, 10, 16_000, 'Signature')
   if (!isAddress(address)) throw new HttpError(400, 'Invalid address.')
   const nonce = /Nonce ?: ?([0-9a-f]{32})/.exec(message)?.[1]
   const claimed = /(?:Address|Adresse) ?: ?(0x[0-9a-fA-F]{40})/.exec(message)?.[1]
