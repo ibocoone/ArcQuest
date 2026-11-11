@@ -5,3 +5,6 @@ node_modules/
 .circle/
 
 cache/
+
+# Visuels et textes pour les réseaux sociaux (pas publiés sur GitHub)
+marketing/

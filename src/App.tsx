@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout, { type Page } from './components/Layout'
 import AuthPage from './components/AuthPage'
 import LegalPage from './components/LegalPage'
+import PublicHelp from './components/PublicHelp'
 import DashboardHome from './components/DashboardHome'
 import JobsPage from './components/JobsPage'
 import WalletPage from './components/WalletPage'
@@ -12,7 +13,7 @@ import ContestsPage from './components/ContestsPage'
 import SettingsPage from './components/SettingsPage'
 import HelpPage from './components/HelpPage'
 import SupportPage from './components/SupportPage'
-import { clearSharedTask, getLink, getSharedTask } from './lib/deeplink'
+import { clearLink, clearSharedTask, getLink, getSharedTask } from './lib/deeplink'
 import { ResetPasswordPage, VerifyEmailPage } from './components/AccountLinkPage'
 import VerifyBanner from './components/VerifyBanner'
 import AdminPage from './components/AdminPage'
@@ -24,7 +25,8 @@ const PAGES: Page[] = ['dashboard', 'jobs', 'wallet', 'earnings', 'referrals', '
 function AppShell() {
   const { user, isLoading } = useAuth()
   const [shared, setShared] = useState<string | null>(() => getSharedTask())
-  const [page, setPage] = useState<Page>(() => (getSharedTask() ? 'jobs' : 'dashboard'))
+  const [publicHelp, setPublicHelp] = useState(() => getLink('page') === 'help')
+  const [page, setPage] = useState<Page>(() => (getSharedTask() ? 'jobs' : getLink('page') === 'help' ? 'help' : 'dashboard'))
   const [tab, setTab] = useState<string | undefined>()
   const [legal, setLegal] = useState<Legal | null>(null)
   const [resetToken, setResetToken] = useState<string | null>(() => getLink('reset'))
@@ -35,6 +37,7 @@ function AppShell() {
   if (verifyToken) return <VerifyEmailPage token={verifyToken} onDone={() => setVerifyToken(null)} />
   if (legal) return <LegalPage kind={legal} onBack={() => setLegal(null)} />
   if (isLoading) return <div className="min-h-dvh flex items-center justify-center"><Loading /></div>
+  if (!user && publicHelp) return <PublicHelp onSignIn={() => { clearLink('page'); setPublicHelp(false); setPage('dashboard') }} />
   if (!user) return <AuthPage onOpenLegal={setLegal} startMode={afterReset ? 'login' : 'register'} />
 
   // "jobs:mine" ouvre la page Tasks sur l'onglet "mine"
