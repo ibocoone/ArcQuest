@@ -68,8 +68,19 @@ export interface PasskeyCall { to: Hex; abi: unknown; functionName: string; args
 
 /** Envoie une ou plusieurs appels en une seule opération, frais pris en charge par Circle (Gas Station), et renvoie le hash de transaction. */
 export async function sendCalls(account: SmartAccount, calls: PasskeyCall[]): Promise<Hex> {
-  const { bundler } = await clients()
-  const hash = await bundler.sendUserOperation({ account, calls: calls as unknown as never[], paymaster: true })
+  const { bundler, client } = await clients()
+  // Le service d'envoi de Circle exige au moins 1 gwei de frais de priorité ; sans cela l'opération est refusée
+  const MIN_PRIORITY = 1_000_000_000n
+  const fees = await client.estimateFeesPerGas().catch(() => null)
+  const maxPriorityFeePerGas = fees && fees.maxPriorityFeePerGas > MIN_PRIORITY ? fees.maxPriorityFeePerGas : MIN_PRIORITY
+  const maxFeePerGas = (fees?.maxFeePerGas ?? 0n) + maxPriorityFeePerGas
+  const hash = await bundler.sendUserOperation({
+    account,
+    calls: calls as unknown as never[],
+    paymaster: true,
+    maxPriorityFeePerGas,
+    maxFeePerGas,
+  })
   const { receipt } = await bundler.waitForUserOperationReceipt({ hash })
   return receipt.transactionHash
 }
