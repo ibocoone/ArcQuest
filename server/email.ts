@@ -61,9 +61,10 @@ export async function sendEmail(to: string, subject: string, text: string, htmlB
 // ── Jetons à usage unique ────────────────────────────────────────────────────
 
 const hash = (t: string) => new Bun.CryptoHasher('sha256').update(t).digest('hex')
-const TTL = { verify: 24 * 3_600_000, reset: 3_600_000 } as const
+const TTL = { verify: 24 * 3_600_000, reset: 3_600_000, link: 24 * 3_600_000 } as const
+type TokenKind = keyof typeof TTL
 
-export async function createToken(userId: string, kind: 'verify' | 'reset', email: string): Promise<string> {
+export async function createToken(userId: string, kind: TokenKind, email: string): Promise<string> {
   const token = Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('')
   // un seul jeton valide à la fois par utilisateur et par usage
   await sql`UPDATE email_tokens SET used_at = now() WHERE user_id = ${userId} AND kind = ${kind} AND used_at IS NULL`
@@ -72,7 +73,7 @@ export async function createToken(userId: string, kind: 'verify' | 'reset', emai
 }
 
 /** Consomme le jeton (une seule fois). Retourne l'utilisateur et l'adresse concernés, ou null s'il est inconnu, expiré ou déjà utilisé. */
-export async function consumeToken(token: string, kind: 'verify' | 'reset'): Promise<{ userId: string; email: string } | null> {
+export async function consumeToken(token: string, kind: TokenKind): Promise<{ userId: string; email: string } | null> {
   if (!/^[0-9a-f]{64}$/.test(token)) return null
   const r = await one<{ user_id: string; email: string }>(sql`
     UPDATE email_tokens SET used_at = now()
@@ -88,6 +89,14 @@ export async function sendVerification(userId: string, email: string, base = pub
   const text = `Confirm your email address to publish tasks and send submissions on ArcQuest:\n${url}\n\nThis link expires in 24 hours. If you did not create an account, ignore this message.`
   await sendEmail(email, 'Confirm your email for ArcQuest', text,
     html('Confirm your email', ['Confirm your email address to publish tasks and send submissions on ArcQuest.', 'This link expires in 24 hours.'], { label: 'Confirm my email', url }, 'If you did not create an account, ignore this message.'))
+}
+
+/** Ajout d'une adresse e-mail à un compte qui n'en a pas (par exemple un compte portefeuille). Le lien prouve que l'adresse est bien à la personne. */
+export async function sendEmailLink(userId: string, email: string, base = publicBase()): Promise<void> {
+  const url = `${base}/?verify=${await createToken(userId, 'link', email)}`
+  const text = `Add this email address to your ArcQuest account:\n${url}\n\nThis link expires in 24 hours. If you did not ask for this, ignore this message.`
+  await sendEmail(email, 'Add your email to ArcQuest', text,
+    html('Add your email', ['Use the button below to add this email address to your ArcQuest account.', 'This link expires in 24 hours.'], { label: 'Add my email', url }, 'If you did not ask for this, ignore this message.'))
 }
 
 export async function sendPasswordReset(userId: string, email: string, base = publicBase()): Promise<void> {

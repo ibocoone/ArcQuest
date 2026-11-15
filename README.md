@@ -12,6 +12,8 @@ Built with [Arc Studio](https://studio.arc.io)
 - Worker protection: the creator has 1 to 14 days (default 3) to approve or reject. If they do nothing, the worker is paid automatically. A rejection can be disputed within 7 days; an arbiter wallet then pays the worker or refunds the creator. With no decision after 14 days, the reward is split 50/50.
 - Deposit, withdrawal and recovery of unused funds; wallet history recorded by the server after verifying each transaction onchain.
 - In-app notifications, reports, a support page (Telegram and X), and an admin area (finances, disputes, moderation, accounts, payments, action log).
+- Leaderboard: top earners, most tasks done and top creators, over all time or the last 30 days. Only approved and paid work counts. Members can hide themselves.
+- "Connect" page: add an email to a wallet account (saved only after clicking a confirmation link), and add X and Telegram names. These names are typed by the user and are not verified. They appear on the leaderboard only if the member chooses to show them.
 - Terms of Use and Privacy Policy pages (templates to be reviewed by a lawyer).
 - A "How it works" page (steps, FAQ, how to add Arc Testnet and get free test USDC), a "Get started" checklist on the dashboard, and a "Copy link" button on every task.
 

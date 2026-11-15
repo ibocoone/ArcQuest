@@ -1,0 +1,187 @@
+<h1>12. Design system</h1>
+<p>The look is calm and trustworthy: a soft light background, frosted "glass" cards, a deep navy accent, and plain English. It is mobile first; the same screens work from phone to desktop.</p>
+<h2>Colour</h2>
+<table>
+<tr><th style="width:26%">Role</th><th style="width:20%">Value</th><th>Use</th></tr>
+<tr><td><span class="swatch" style="background:#0f1c35"></span>Ink</td><td class="mono">#0f1c35</td><td>Text, headings, dark panels.</td></tr>
+<tr><td><span class="swatch" style="background:#1a2f6e"></span>Accent</td><td class="mono">#1a2f6e</td><td>Primary buttons, active navigation, links, key numbers.</td></tr>
+<tr><td><span class="swatch" style="background:#1061a6"></span>Accent hover</td><td class="mono">#1061a6</td><td>Hover and focus emphasis.</td></tr>
+<tr><td><span class="swatch" style="background:#85b1ed"></span>Focus ring</td><td class="mono">#85b1ed</td><td>Keyboard focus.</td></tr>
+<tr><td><span class="swatch" style="background:#6b6580"></span>Muted</td><td class="mono">#6b6580</td><td>Secondary text.</td></tr>
+<tr><td><span class="swatch" style="background:#8a849c"></span>Subtle</td><td class="mono">#8a849c</td><td>Hints, disabled controls.</td></tr>
+<tr><td><span class="swatch" style="background:#1a8047"></span>Success</td><td class="mono">#1a8047</td><td>Amounts earned, confirmed, approved.</td></tr>
+<tr><td><span class="swatch" style="background:#ba2b4c"></span>Danger</td><td class="mono">#ba2b4c</td><td>Errors, rejections, sign-out.</td></tr>
+<tr><td><span class="swatch" style="background:linear-gradient(180deg,#f4f6ff,#fffcf7,#f8f4ff)"></span>Page background</td><td class="mono">#f4f6ff to #fffcf7 to #f8f4ff</td><td>Vertical soft gradient behind all pages.</td></tr>
+</table>
+<h2>Typography</h2>
+<ul>
+<li><b>DM Sans</b> (400 to 700) for body and interface text.</li>
+<li><b>Space Grotesk</b> (500 to 700) for headings and the wordmark.</li>
+<li><b>JetBrains Mono</b> for addresses, hashes and codes.</li>
+<li>Scale: page title about 24 to 28 px, section title 16 to 18 px, body 13 to 14 px, hints 11 to 12 px.</li>
+</ul>
+<h2>Surfaces and shape</h2>
+<table>
+<tr><th style="width:26%">Element</th><th>Specification</th></tr>
+<tr><td>Glass card</td><td>Background white at 72 percent, blur 24 px with saturation 180 percent, 1 px white border at 68 percent, shadow <span class="mono">0 8px 32px rgba(15,28,53,.07)</span> plus an inner top highlight. Radius 16 px.</td></tr>
+<tr><td>Inputs</td><td>Radius 12 px, white at 60 percent, 1 px border ink at 12 percent, 13 px text.</td></tr>
+<tr><td>Primary button</td><td>Accent fill, white text, soft accent shadow; disabled state is grey with no shadow. Full width on forms.</td></tr>
+<tr><td>Ghost button</td><td>Accent at 7 percent fill, 1 px accent border at 12 percent, accent text.</td></tr>
+<tr><td>Pills and chips</td><td>Fully rounded. Status colours: pending amber, approved green, rejected red, disputed purple, refunded and split grey.</td></tr>
+<tr><td>Tabs</td><td>Segmented control on a tinted track; the active tab is a raised white chip.</td></tr>
+<tr><td>Hero balance card</td><td>Deep navy panel with a thin multi-colour line on top, two balances side by side (wallet and ArcQuest), address chip and disconnect button.</td></tr>
+</table>
+<h2>Layout rules</h2>
+<ul>
+<li>Desktop: fixed left sidebar (logo, account chip, navigation, legal links, sign out) and a centred content column up to about 880 px.</li>
+<li>Mobile: top bar with menu drawer; content in one column; buttons at least 44 px high.</li>
+<li>Every list has an empty state with an icon, a sentence and a next action. Every request has a loading state and a plain-language error box with retry when relevant.</li>
+<li>Icons: lucide-react. The USDC mark comes from web3icons. Toasts: sonner.</li>
+<li>Voice: short sentences, no jargon, English only, no emojis.</li>
+</ul>
+<h2>Brand assets</h2>
+<p>The mark is a white lightning bolt in a navy rounded square next to the word "ArcQuest". Social images (banner, protection flow, card) are produced from HTML and live outside the repository.</p>
+
+<h1>13. Screens</h1>
+<p class="small">Captures come from a test environment with demonstration data (sample tasks and a sample contest). Names shown are test accounts.</p>
+<div class="fig"><img src="../shots/auth-register.png"><figcaption>Sign-in and sign-up. Email tab with the create-account form and the support link.</figcaption></div>
+<div class="grid2">
+  <div class="fig"><img src="../shots/auth-wallet.png"><figcaption>Wallet tab: passkey or extension wallet.</figcaption></div>
+  <div class="fig"><img src="../shots/mobile-dashboard.png" style="max-height:120mm"><figcaption>Dashboard on a phone.</figcaption></div>
+</div>
+<div class="fig"><img src="../shots/dashboard.png"><figcaption>Dashboard with the "Get started" checklist, balances and counters.</figcaption></div>
+<div class="fig"><img src="../shots/tasks.png"><figcaption>Tasks, Offers tab: search, type filters, cards with reward, places left and deadline.</figcaption></div>
+<div class="fig"><img src="../shots/task-open.png"><figcaption>An open task: instructions, review time, proof form, copy link and report.</figcaption></div>
+<div class="fig"><img src="../shots/contests.png"><figcaption>Contests with a prize pool and ranked prizes.</figcaption></div>
+<div class="grid2">
+  <div class="fig"><img src="../shots/wallet.png"><figcaption>Wallet.</figcaption></div>
+  <div class="fig"><img src="../shots/earnings.png"><figcaption>Earnings.</figcaption></div>
+  <div class="fig"><img src="../shots/referrals.png"><figcaption>Referrals.</figcaption></div>
+  <div class="fig"><img src="../shots/settings.png"><figcaption>Settings.</figcaption></div>
+</div>
+<div class="fig"><img src="../shots/how-it-works.png"><figcaption>How it works: guide, network details, test USDC steps and FAQ. Also available without an account at <span class="mono">/?page=help</span>.</figcaption></div>
+<div class="fig"><img src="../shots/support.png"><figcaption>Support page.</figcaption></div>
+<h3>Administration</h3>
+<div class="fig"><img src="../shots/admin-finance.png"><figcaption>Finances: contract balance read from the chain, funded and paid totals, last seven days.</figcaption></div>
+<div class="grid2">
+  <div class="fig"><img src="../shots/admin-disputes.png"><figcaption>Disputes (arbiter wallet decides).</figcaption></div>
+  <div class="fig"><img src="../shots/admin-content.png"><figcaption>Content moderation.</figcaption></div>
+</div>
+<div class="fig"><img src="../shots/admin-email.png"><figcaption>Email status and test sender.</figcaption></div>
+<h3>Social assets</h3>
+<div class="fig"><img src="../shots/banner-tweet.png"><figcaption>Announcement banner.</figcaption></div>
+<div class="fig"><img src="../shots/flow.png"><figcaption>Protection flow infographic.</figcaption></div>
+
+<h1>14. Security model</h1>
+<table>
+<tr><th style="width:26%">Risk</th><th>Mitigation</th></tr>
+<tr><td>Theft of user funds</td><td>No owner, no upgrade, no pause. Withdraw pays only the caller. Approve, reject, release and reclaim are restricted to the funder. The arbiter can only choose between paying the worker and refunding the creator. Exact-amount approvals.</td></tr>
+<tr><td>Fake claims and slot flooding</td><td>A claim needs an EIP-712 permit from the server key, issued only after account, proof, deadline and slot checks. One claim per worker and job. Rotating the signer is immediate.</td></tr>
+<tr><td>Forged payment or funding notices</td><td>The server verifies the transaction receipt and event arguments (job id, funder, amounts) and rejects reused hashes. Submission status is read from the contract, not from the browser.</td></tr>
+<tr><td>Replay of signatures</td><td>Wallet sign-in nonces are single use and expire. Permits expire in 30 minutes and cannot be reused.</td></tr>
+<tr><td>Account takeover</td><td>Argon2 password hashes; session tokens stored hashed; HttpOnly SameSite=Lax cookie, Secure in production; rate limits; generic errors on login and reset; a reset ends all sessions; reset and confirmation tokens are hashed, single use and expire.</td></tr>
+<tr><td>Abusive uploads</td><td>Only PNG, JPEG, WebP (checked by file signature), 3 MB, served with no-sniff headers; only the owner, the relevant creator and admins can read.</td></tr>
+<tr><td>Injection and cross-site attacks</td><td>Parameterised SQL everywhere; React output escaping; JSON-only write routes; same-origin cookies.</td></tr>
+<tr><td>Admin misuse</td><td>Role checked in the database on every request; every admin action written to an audit log; admins have no access to funds.</td></tr>
+<tr><td>Secrets</td><td>Keys and passwords live only in environment variables on the server. The only credentials in the browser bundle are the public client key and public addresses.</td></tr>
+<tr><td>Provider outage or regional blocking</td><td>Ordered RPC fallback in browser and server; clear retry messages; background reconcile of submissions.</td></tr>
+</table>
+<div class="warn"><b>Residual risks.</b> A leaked claim signer key could allow fake claims until it is rotated. A compromised arbiter can mis-decide disputes within its narrow powers. USDC issuer actions on the vault address would block withdrawals. Rate limits are in memory. There is no external audit yet.</div>
+
+<h1>15. Testing strategy</h1>
+<table>
+<tr><th style="width:24%">Layer</th><th>What is covered</th></tr>
+<tr><td>Contract (Foundry)</td><td>142 tests: every function, revert paths, timing boundaries to the second, permits (valid, expired, wrong signer, replay), slot limits, odd-amount 50/50 split, arbiter handover, fuzz tests, three invariants (solvency, exact conservation, locked and active counters). Static analysis and two automated security reviews.</td></tr>
+<tr><td>Server (bun test)</td><td>22 tests: accounts and sessions, wallet sign-in and nonce replay, anti-cheat rules (one claim per account, concurrent slot requests), permits, uploads, admin access, reports, email flows (confirmation, reset, expiry, enforcement on a second server instance), the API-to-UI field compatibility check.</td></tr>
+<tr><td>Real transactions</td><td>Two scenarios on Arc Testnet with test wallets: protected task from creation to approval, rejection, dispute and the refusal of stolen or replayed permits; and a contest from funding to a paid prize.</td></tr>
+<tr><td>Browser (Playwright)</td><td>Sign-up, all pages, mobile layout, wallet sign-in with an injected test wallet, deposit, publish, submit, approve, reject, dispute, admin dispute list, withdraw, blocked-RPC simulation, passkey creation with a virtual authenticator against the live site.</td></tr>
+<tr><td>Static checks</td><td>oxlint (type-aware) and TypeScript for the frontend and the server.</td></tr>
+</table>
+
+<h1>16. Deployment and operations</h1>
+<h2>Pipeline</h2>
+<ol>
+<li>Build the frontend into <span class="mono">web/</span> (<span class="mono">bunx vite build --outDir web --emptyOutDir</span>). The built files are committed because building inside the image needs more memory than a free instance has.</li>
+<li>Push to the main branch on GitHub.</li>
+<li>Render builds the Dockerfile: Bun base image, production dependencies, copy of <span class="mono">server/</span>, the single shared <span class="mono">onchain-facts</span> file and <span class="mono">web/</span>. It runs <span class="mono">bun server/index.ts</span>, which applies the schema and serves the site and API on one port.</li>
+<li>Render auto-deploys each push. The free instance sleeps when idle; the first request can take a minute.</li>
+</ol>
+<h2>Configuration (names and purpose only)</h2>
+<table>
+<tr><th style="width:34%">Name</th><th>Purpose</th></tr>
+<tr><td>DATABASE_URL</td><td>Postgres connection (secret).</td></tr>
+<tr><td>PORT / API_PORT</td><td>Listening port.</td></tr>
+<tr><td>PUBLIC_URL</td><td>Public site address used in email links (required in production).</td></tr>
+<tr><td>COOKIE_SECURE</td><td>Secure cookie flag, true over HTTPS.</td></tr>
+<tr><td>ADMIN_EMAILS / ADMIN_WALLETS</td><td>Accounts that receive the admin role.</td></tr>
+<tr><td>VITE_VAULT_ADDRESS, VITE_VAULT_DEPLOY_BLOCK</td><td>Contract address and block, also embedded in the frontend build.</td></tr>
+<tr><td>CLAIM_SIGNER_PRIVATE_KEY</td><td>Server key for claim permits (secret). Its address must equal the contract's claim signer.</td></tr>
+<tr><td>RPC_URL_Arc_Testnet</td><td>Optional keyed RPC for the server only.</td></tr>
+<tr><td>VITE_CLIENT_KEY, VITE_CLIENT_URL, VITE_PASSKEY_DOMAIN</td><td>Circle Modular Wallets client key (public, domain-restricted), service address, and the hostname where passkeys are enabled.</td></tr>
+<tr><td>BREVO_API_KEY, EMAIL_FROM, EMAIL_FROM_NAME</td><td>Email sending (secret key; the sender must be verified at the provider).</td></tr>
+<tr><td>REQUIRE_EMAIL_VERIFICATION</td><td>Force confirmation without a provider (tests).</td></tr>
+</table>
+<h2>Operations notes</h2>
+<ul>
+<li><b>Site not answering:</b> check the Render service status (suspended, failed deploy, still deploying), then its logs; check that the Neon project is active.</li>
+<li><b>Emails not arriving:</b> use the admin Email tool. The most common cause is the provider's IP restriction; the second is an unverified sender.</li>
+<li><b>Passkey errors:</b> "Invalid credentials" means the page hostname differs from the Circle Console client key and passkey domain. "Cannot find the entity config" means the passkey domain is not saved for the right environment.</li>
+<li><b>Balances show a dash:</b> the browser cannot reach any RPC; use another network or the alternative endpoints in the wallet.</li>
+<li><b>Leaked signer key:</b> the arbiter calls <span class="mono">setClaimSigner</span> with a new address and the server variable is replaced.</li>
+</ul>
+
+<h1>17. Rebuilding the project elsewhere</h1>
+<h2>What you need</h2>
+<ul>
+<li>A Git host, a Postgres database, a host that runs a Docker container (or Bun directly) with HTTPS.</li>
+<li>A Circle Console account: a Modular Wallets client key for the final hostname and the passkey domain set to the same hostname (Testnet environment).</li>
+<li>An email provider with a verified sender, and the IP restriction disabled or set for the host.</li>
+<li>Two wallets you control: the arbiter wallet and an admin wallet (they can be the same).</li>
+<li>Test USDC on Arc Testnet for end-to-end testing.</li>
+</ul>
+<h2>Steps</h2>
+<ol>
+<li>Clone the repository and install dependencies with Bun.</li>
+<li>Create the database and set <span class="mono">DATABASE_URL</span>. The schema is created on first start.</li>
+<li>Decide on the contract. Reusing the existing address is possible only if you control the arbiter wallet and either hold the current signer key or call <span class="mono">setClaimSigner</span> to your new key. Otherwise deploy a fresh <span class="mono">ArcQuestVault</span> with the constructor arguments (USDC address for the network, arbiter, claim signer address), verify it on the explorer, and update the address and deployment block.</li>
+<li>Generate a new signer key; set <span class="mono">CLAIM_SIGNER_PRIVATE_KEY</span>; make its address the contract's claim signer.</li>
+<li>Set the Circle values, the public URL, cookie flag, admin lists and email provider settings.</li>
+<li>Build the frontend into <span class="mono">web/</span>, build the Docker image, deploy, and open the site.</li>
+<li>Run the test suites against a staging copy, then do one real cycle: deposit, publish, claim, approve, withdraw.</li>
+<li>Move data if needed with a database dump and restore. Uploads are inside the database. Legacy rows linked to retired contracts are closed automatically.</li>
+</ol>
+<div class="note"><b>If you change the stack.</b> Keep these contracts between parts: the API routes and fields in section 8, the sign-in message format, the permit typed data, the rule that the server verifies the chain, and the status mapping in section 7. The contract is chain-agnostic EVM code; only token decimals, the gas token and the wallet service availability change on another network (for example 18-decimal stablecoins on some chains).</div>
+
+<h1>18. Known limits and roadmap</h1>
+<table>
+<tr><th style="width:34%">Item</th><th>State</th></tr>
+<tr><td>External security audit</td><td>Not done. Required before any mainnet use.</td></tr>
+<tr><td>Network fees for actions</td><td>Extension wallets pay small fees to submit a claim, approve, reject, collect and withdraw. Passkey wallets are built to use sponsored fees; end-to-end confirmation of sponsored deposits should be re-checked after the fee-floor fix is live. A relayer for all wallets is a design option.</td></tr>
+<tr><td>Founder revenue</td><td>No platform fee yet. Planned design: a capped fee fixed when a task is created, charged to the creator on top of the reward and taken only on rewards actually paid; this needs a contract change and a new deployment.</td></tr>
+<tr><td>Local money (mobile money)</td><td>Removed from scope. Needs a payment partner and compliance work.</td></tr>
+<tr><td>Rate limiting</td><td>In memory; resets on restart and is per instance.</td></tr>
+<tr><td>Hosting tier</td><td>Free instances sleep; the first request is slow.</td></tr>
+<tr><td>Regional access</td><td>Some countries are blocked by the primary RPC; fallbacks and a retry message are in place.</td></tr>
+<tr><td>Referrals</td><td>Counter only, no payout.</td></tr>
+<tr><td>Wallet history</td><td>Only operations recorded after the history feature was added.</td></tr>
+<tr><td>Email deliverability</td><td>Improves with a sender on your own domain.</td></tr>
+</table>
+
+<h1>19. Glossary</h1>
+<table>
+<tr><th style="width:24%">Term</th><th>Meaning</th></tr>
+<tr><td>Arc</td><td>A Circle-backed EVM network where USDC is the gas token.</td></tr>
+<tr><td>USDC</td><td>The dollar stablecoin used for every amount in the product.</td></tr>
+<tr><td>Escrow</td><td>Money locked in the contract until rules release it.</td></tr>
+<tr><td>Claim</td><td>A worker's registered submission for a job in the contract.</td></tr>
+<tr><td>Permit</td><td>A signed message from the platform key saying which wallet may register a claim.</td></tr>
+<tr><td>Review period</td><td>Time the creator has to approve or reject before the worker can be paid automatically.</td></tr>
+<tr><td>Dispute</td><td>A worker's challenge of a rejection, decided by the arbiter.</td></tr>
+<tr><td>Arbiter</td><td>The wallet allowed to settle disputes between two outcomes only.</td></tr>
+<tr><td>Passkey</td><td>A device-based credential (fingerprint, face or device code) used instead of a password or seed phrase.</td></tr>
+<tr><td>Smart account</td><td>A contract wallet controlled by a passkey; sends user operations through a bundler.</td></tr>
+<tr><td>Paymaster</td><td>A service that pays network fees on behalf of the user.</td></tr>
+<tr><td>RPC</td><td>The server a client uses to read the blockchain or send transactions.</td></tr>
+<tr><td>Reconcile</td><td>The background job that copies chain state into the database.</td></tr>
+</table>
+<p class="small" style="margin-top:8mm">End of document. No secret, key, password, connection string or environment value is included.</p>

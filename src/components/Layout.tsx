@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import {
-  LayoutDashboard, Briefcase, Wallet, TrendingUp, Users, Trophy, Settings, Menu, X, LogOut, ShieldCheck, LifeBuoy, HelpCircle,
+  LayoutDashboard, Briefcase, Wallet, TrendingUp, Users, Trophy, Settings, Menu, X, LogOut, ShieldCheck, LifeBuoy, HelpCircle, Medal, Link2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import NotificationsBell from './NotificationsBell'
 
-export type Page = 'dashboard' | 'jobs' | 'wallet' | 'earnings' | 'referrals' | 'contests' | 'help' | 'support' | 'settings' | 'admin'
+export type Page = 'dashboard' | 'jobs' | 'wallet' | 'earnings' | 'referrals' | 'leaderboard' | 'connect' | 'contests' | 'help' | 'support' | 'settings' | 'admin'
 
 const NAV: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -14,6 +14,8 @@ const NAV: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'earnings', label: 'Earnings', icon: TrendingUp },
   { id: 'referrals', label: 'Referrals', icon: Users },
+  { id: 'leaderboard', label: 'Leaderboard', icon: Medal },
+  { id: 'connect', label: 'Connect', icon: Link2 },
   { id: 'help', label: 'How it works', icon: HelpCircle },
   { id: 'support', label: 'Support', icon: LifeBuoy },
   { id: 'settings', label: 'Settings', icon: Settings },

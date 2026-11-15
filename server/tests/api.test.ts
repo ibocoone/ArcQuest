@@ -400,3 +400,127 @@ describe('e-mails : confirmation, mot de passe oublié, notifications', () => {
     } finally { proc.kill() }
   }, 30_000)
 })
+
+// ── Classement, liens X / Telegram, ajout d'un e-mail ───────────────────────
+
+async function approve(creatorId: string, workerId: string, daysAgo = 0) {
+  const taskId = await insertTask(creatorId)
+  const at = new Date(Date.now() - daysAgo * 86_400_000).toISOString()
+  await sql`INSERT INTO submissions (task_id, worker_id, status, proof_url, claim_at, status_at, created_at)
+            VALUES (${taskId}, ${workerId}, 'approved', 'https://example.test/proof', ${at}, ${at}, ${at})`
+}
+
+describe('classement', () => {
+  test('classe par gains, tâches et créateurs, en respectant visibilité, suspension et période', async () => {
+    const boss = await emailUser()
+    const a = await emailUser(), b = await emailUser(), c = await emailUser(), d = await emailUser(), e = await emailUser()
+    for (let i = 0; i < 3; i++) await approve(boss.c.userId, a.c.userId)
+    await approve(boss.c.userId, b.c.userId)
+    for (let i = 0; i < 2; i++) await approve(boss.c.userId, c.c.userId, 45)
+    for (let i = 0; i < 5; i++) await approve(boss.c.userId, d.c.userId)
+    await approve(boss.c.userId, e.c.userId)
+    const nameOf = async (x: { c: Client }) => (await x.c.req('GET', '/me')).body.user.username as string
+    const [na, nb, nc, nd, ne, nboss] = await Promise.all([nameOf(a), nameOf(b), nameOf(c), nameOf(d), nameOf(e), nameOf(boss)])
+    await sql`UPDATE users SET leaderboard_visible = false WHERE id = ${d.c.userId}`
+    await sql`UPDATE users SET status = 'suspended' WHERE id = ${e.c.userId}`
+    const viewer = a.c
+
+    const all = await viewer.req('GET', '/leaderboard?metric=earned&period=all')
+    expect(all.status).toBe(200)
+    const ours = (res: any, names: string[]) => (res.body.items as any[]).filter((i) => names.includes(i.username))
+    const order = ours(all, [na, nb, nc, nd, ne]).map((i) => i.username)
+    expect(order).toEqual([na, nc, nb]) // A 1.5 > C 1.0 > B 0.5 ; D masqué, E suspendu
+    expect(ours(all, [na])[0].tasks).toBe(3)
+    expect(Number(ours(all, [na])[0].earned)).toBeCloseTo(1.5, 6)
+    expect(all.body.me.username).toBe(na)
+    expect(all.body.me.isMe).toBe(true)
+    expect(ours(all, [na])[0].rank).toBeLessThan(ours(all, [nb])[0].rank)
+
+    const days30 = await viewer.req('GET', '/leaderboard?metric=earned&period=30d')
+    expect(ours(days30, [na, nb, nc]).map((i) => i.username)).toEqual([na, nb]) // C date de plus de 30 jours
+
+    const tasks = await viewer.req('GET', '/leaderboard?metric=tasks&period=all')
+    expect(ours(tasks, [na, nb, nc]).map((i) => i.username)).toEqual([na, nc, nb])
+
+    const creators = await viewer.req('GET', '/leaderboard?metric=creators&period=all')
+    const bossRow = ours(creators, [nboss])[0]
+    expect(Number(bossRow.earned)).toBeCloseTo(0.5 * (3 + 1 + 2 + 5 + 1), 6)
+
+    // quelqu'un sans paiement n'est pas classé
+    const nobody = await emailUser()
+    const r = await nobody.c.req('GET', '/leaderboard')
+    expect(r.status).toBe(200)
+    expect(r.body.me).toBeNull()
+    // accès réservé aux comptes connectés
+    expect((await new Client().req('GET', '/leaderboard')).status).toBe(401)
+    // valeurs inconnues : retombent sur les réglages par défaut
+    expect((await viewer.req('GET', '/leaderboard?metric=x&period=y')).body.metric).toBe('earned')
+  })
+})
+
+describe('liens X et Telegram', () => {
+  test('validation, normalisation et confidentialité sur le classement', async () => {
+    const boss = await emailUser()
+    const u = await emailUser()
+    await approve(boss.c.userId, u.c.userId)
+    const name = (await u.c.req('GET', '/me')).body.user.username as string
+    const mine = async () => ((await u.c.req('GET', '/leaderboard')).body.items as any[]).find((i) => i.username === name)
+
+    expect((await u.c.req('POST', '/me/social', { xHandle: 'pas valide!' })).status).toBe(400)
+    expect((await u.c.req('POST', '/me/social', { telegramHandle: 'abc' })).status).toBe(400)
+    expect((await u.c.req('POST', '/me/social', { leaderboardVisible: 'oui' })).status).toBe(400)
+
+    const ok = await u.c.req('POST', '/me/social', { xHandle: 'https://x.com/@ArcQuest_app?s=1', telegramHandle: '@Ibrahim7910' })
+    expect(ok.status).toBe(200)
+    expect(ok.body.xHandle).toBe('ArcQuest_app')
+    expect(ok.body.telegramHandle).toBe('Ibrahim7910')
+    const me = (await u.c.req('GET', '/me')).body.user
+    expect(me.xHandle).toBe('ArcQuest_app')
+    expect(me.showLinks).toBe(false)
+
+    expect((await mine()).links).toBeNull() // privés par défaut
+    await u.c.req('POST', '/me/social', { showLinks: true })
+    expect((await mine()).links).toEqual({ x: 'ArcQuest_app', telegram: 'Ibrahim7910' })
+
+    // effacer un lien sans toucher à l'autre
+    await u.c.req('POST', '/me/social', { xHandle: '' })
+    expect((await mine()).links).toEqual({ x: null, telegram: 'Ibrahim7910' })
+
+    // se retirer du classement
+    await u.c.req('POST', '/me/social', { leaderboardVisible: false })
+    expect(await mine()).toBeUndefined()
+  })
+})
+
+describe('ajout d\'une adresse e-mail à un compte portefeuille', () => {
+  test('lien de confirmation, adresse déjà prise, limites', async () => {
+    const w = await walletUser()
+    expect((await w.c.req('POST', '/me/email', { email: 'pas-un-email' })).status).toBe(400)
+    const email = `test_link_${rnd().slice(0, 10)}@example.test`
+    expect((await w.c.req('POST', '/me/email', { email })).status).toBe(200)
+    const mail = (await outboxFor(email))[0]
+    expect(mail?.body).toContain('?verify=')
+    const token = (mail?.body.match(/\?verify=([0-9a-f]{64})/) as RegExpMatchArray)[1]
+    // tant que le lien n'est pas utilisé, rien n'est enregistré
+    expect((await w.c.req('GET', '/me')).body.user.email).toBeNull()
+    const v = await new Client().req('POST', '/auth/verify', { token })
+    expect(v.status).toBe(200)
+    expect(v.body.linked).toBe(true)
+    const me = (await w.c.req('GET', '/me')).body.user
+    expect(me.email).toBe(email)
+    expect(me.emailVerified).toBe(true)
+    expect((await new Client().req('POST', '/auth/verify', { token })).status).toBe(400) // usage unique
+    expect((await w.c.req('POST', '/me/email', { email: `x_${email}` })).status).toBe(400) // a déjà une adresse
+
+    // adresse déjà utilisée par un autre compte : même réponse, aucun e-mail envoyé
+    const w2 = await walletUser()
+    const r = await w2.c.req('POST', '/me/email', { email })
+    expect(r.status).toBe(200)
+    expect((await outboxFor(email)).length).toBe(1)
+
+    // limite : 3 demandes par heure
+    const w3 = await walletUser()
+    for (let i = 0; i < 3; i++) expect((await w3.c.req('POST', '/me/email', { email: `test_rl${i}_${rnd().slice(0, 8)}@example.test` })).status).toBe(200)
+    expect((await w3.c.req('POST', '/me/email', { email: `test_rl9_${rnd().slice(0, 8)}@example.test` })).status).toBe(429)
+  })
+})

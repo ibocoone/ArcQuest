@@ -138,6 +138,7 @@ test("l'API renvoie tous les champs attendus par chaque écran", async () => {
   check('components/DashboardHome.tsx', 'Stats', await get(A, '/me/stats'), '/me/stats')
   check('components/EarningsPage.tsx', 'Earning', first(await get(B, '/me/earnings'), '/me/earnings'), '/me/earnings')
   check('components/ReferralsPage.tsx', 'Referral', first(await get(A, '/me/referrals'), '/me/referrals'), '/me/referrals')
+  check('components/LeaderboardPage.tsx', 'Row', first(await get(A, '/leaderboard'), '/leaderboard'), '/leaderboard')
   check('components/AdminPage.tsx', 'Overview', await get(A, '/admin/overview'), '/admin/overview')
   check('components/AdminPage.tsx', 'Report', first(await get(A, '/admin/reports'), '/admin/reports'), '/admin/reports')
   check('components/AdminPage.tsx', 'AdminUser', first(await get(A, '/admin/users'), '/admin/users'), '/admin/users')

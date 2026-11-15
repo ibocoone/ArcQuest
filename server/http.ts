@@ -17,6 +17,10 @@ export interface AuthUser {
   created_at: Date
   email_verified_at?: Date | null
   email_notifications?: boolean
+  x_handle?: string | null
+  telegram_handle?: string | null
+  leaderboard_visible?: boolean
+  show_links?: boolean
 }
 
 export interface Ctx {
@@ -118,7 +122,7 @@ export async function sessionUser(req: Request): Promise<AuthUser | null> {
   const token = readCookie(req, COOKIE)
   if (!token) return null
   return one<AuthUser>(sql`
-    SELECT u.id, u.email, u.username, u.display_name, u.wallet_address, u.referral_code, u.role, u.status, u.created_at, u.email_verified_at, u.email_notifications
+    SELECT u.id, u.email, u.username, u.display_name, u.wallet_address, u.referral_code, u.role, u.status, u.created_at, u.email_verified_at, u.email_notifications, u.x_handle, u.telegram_handle, u.leaderboard_visible, u.show_links
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ${sha256(token)} AND s.expires_at > now()`)
 }
@@ -137,6 +141,10 @@ export function publicUser(u: AuthUser) {
     emailVerified: u.email ? !!u.email_verified_at : null,
     verificationRequired: verificationRequired(),
     emailNotifications: u.email_notifications ?? true,
+    xHandle: u.x_handle ?? null,
+    telegramHandle: u.telegram_handle ?? null,
+    leaderboardVisible: u.leaderboard_visible ?? true,
+    showLinks: u.show_links ?? false,
   }
 }
 

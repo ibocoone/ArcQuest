@@ -47,6 +47,10 @@ export interface User {
   emailVerified: boolean | null
   verificationRequired: boolean
   emailNotifications: boolean
+  xHandle: string | null
+  telegramHandle: string | null
+  leaderboardVisible: boolean
+  showLinks: boolean
 }
 
 export const usdc = (v: string | number | null | undefined): string => {

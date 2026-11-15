@@ -1,0 +1,118 @@
+<h1>6. Core flows</h1>
+<p>In every flow the same rule applies: the browser performs the action (a signature or a transaction) and then tells the server; the server never accepts the browser's word for money, it reads the chain or the receipt.</p>
+<h2>6.1 Task lifecycle (the main flow)</h2>
+<div class="fig">
+<svg viewBox="0 0 900 430" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, Segoe UI, Arial, sans-serif">
+  <defs><marker id="f" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1a2f6e"/></marker></defs>
+  <rect width="900" height="430" fill="#f7f9ff" rx="10"/>
+  <text x="120" y="28" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">Creator</text>
+  <text x="330" y="28" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">Server</text>
+  <text x="560" y="28" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">Contract</text>
+  <text x="790" y="28" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">Worker</text>
+  <line x1="120" y1="38" x2="120" y2="420" stroke="#c9d1ea" stroke-dasharray="4 4"/>
+  <line x1="330" y1="38" x2="330" y2="420" stroke="#c9d1ea" stroke-dasharray="4 4"/>
+  <line x1="560" y1="38" x2="560" y2="420" stroke="#c9d1ea" stroke-dasharray="4 4"/>
+  <line x1="790" y1="38" x2="790" y2="420" stroke="#c9d1ea" stroke-dasharray="4 4"/>
+  <g font-size="10.5" fill="#0f1c35">
+  <line x1="120" y1="58" x2="558" y2="58" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="340" y="52" text-anchor="middle">1. createJob (reward x places locked)</text>
+  <line x1="120" y1="84" x2="328" y2="84" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="224" y="78" text-anchor="middle">2. POST /tasks (tx hash)</text>
+  <line x1="330" y1="108" x2="558" y2="108" stroke="#6b6580" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#f)"/><text x="444" y="102" text-anchor="middle">verifies JobCreated event</text>
+  <line x1="790" y1="140" x2="332" y2="140" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="560" y="134" text-anchor="middle">3. claim-permit + proof (link or image)</text>
+  <line x1="330" y1="164" x2="788" y2="164" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="560" y="158" text-anchor="middle">4. signed EIP-712 permit (30 min)</text>
+  <line x1="790" y1="192" x2="562" y2="192" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="676" y="186" text-anchor="middle">5. submitClaim (clock starts)</text>
+  <line x1="790" y1="216" x2="332" y2="216" stroke="#1a2f6e" stroke-width="1.6" marker-end="url(#f)"/><text x="560" y="210" text-anchor="middle">6. POST /submissions/:id/sync</text>
+  <line x1="330" y1="238" x2="558" y2="238" stroke="#6b6580" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#f)"/><text x="444" y="232" text-anchor="middle">reads claims() = Pending</text>
+  <line x1="330" y1="262" x2="122" y2="262" stroke="#6b6580" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#f)"/><text x="226" y="256" text-anchor="middle">notify: new submission (app + email)</text>
+  </g>
+  <rect x="30" y="290" width="840" height="124" rx="10" fill="#fff" stroke="#c9d1ea"/>
+  <g font-size="11" fill="#0f1c35">
+  <text x="46" y="312" font-weight="700" fill="#1a2f6e">7. Within the review time (1 to 14 days, default 3), one of three things happens</text>
+  <text x="46" y="334">a) Creator approves: approveClaim pays the worker balance right away.</text>
+  <text x="46" y="352">b) Creator does nothing: after the review time anyone calls finalizeClaim and the worker is paid.</text>
+  <text x="46" y="370">c) Creator rejects (with a reason): the worker may dispute for 7 days. The arbiter pays the worker or refunds the creator.</text>
+  <text x="46" y="388">    If the arbiter is silent for 14 days, anyone can split the reward 50/50. After the deadline the creator calls reclaimJob.</text>
+  <text x="46" y="406" fill="#6b6580">After each action the server syncs the database from the contract and notifies the other party.</text>
+  </g>
+</svg>
+<figcaption>Figure 3. Publish, claim, review. Dashed arrows are server reads of the chain.</figcaption>
+</div>
+
+<h2>6.2 Other flows</h2>
+<table>
+<tr><th style="width:20%">Flow</th><th>Steps</th></tr>
+<tr><td>Email sign-up and sign-in</td><td>POST /auth/register or /auth/login. Password hashed with argon2. Session token random, stored as SHA-256 hash, sent as an HttpOnly SameSite=Lax cookie (Secure in production). Login limited to 10 tries per 15 minutes per email.</td></tr>
+<tr><td>Wallet sign-in</td><td>GET /auth/nonce, wallet signs the message (address + nonce), POST /auth/wallet. Server checks the nonce (single use, expiry), then the signature: plain ECDSA first, then ERC-1271 / ERC-6492 for smart accounts through the chain client. Account is created on first sign-in. Signatures up to 16,000 characters are accepted (passkey signatures are about 3,500).</td></tr>
+<tr><td>Passkey wallet</td><td>Circle Modular Wallets: the browser registers or uses a WebAuthn credential, derives a smart account, signs the same message, and the server verifies it as above. The username shown on the passkey is sanitised (5 to 50 characters, no spaces). The option only appears on the hostname declared in the Circle Console.</td></tr>
+<tr><td>Link a wallet</td><td>POST /me/wallet with the same proof. One wallet belongs to one account.</td></tr>
+<tr><td>Deposit</td><td>Approve the exact amount, then <span class="mono">deposit</span> (one batched operation for passkey wallets). The browser then POSTs the hash to /me/activity; the server verifies the receipt and records one row per event for the history.</td></tr>
+<tr><td>Withdraw</td><td><span class="mono">withdraw(amount)</span> sends USDC to the caller only. History updated the same way.</td></tr>
+<tr><td>Contest</td><td>Creator: <span class="mono">fundTask</span> for the prize pool, then POST /contests (server verifies TaskFunded for the total). Participants enter with a proof. Creator pays winners with <span class="mono">releaseReward</span> and POSTs /entries/:id/award (server verifies RewardReleased: worker, amount, contest).</td></tr>
+<tr><td>Forgot password</td><td>POST /auth/forgot always answers success. A 1-hour single-use token is emailed; POST /auth/reset sets the new password, invalidates all sessions and marks the email verified.</td></tr>
+<tr><td>Email confirmation</td><td>A 24-hour single-use token is emailed at sign-up. Until confirmed, an email account cannot publish, claim or enter contests (only when an email provider is configured). Wallet accounts are exempt. Accounts older than 9 Nov 2026 are treated as confirmed.</td></tr>
+<tr><td>Notifications</td><td>Stored in the database and shown by a bell (polled). Important kinds are also emailed when the address is confirmed and the user left notifications on.</td></tr>
+<tr><td>Reconcile loop</td><td>Every 90 seconds the server syncs up to 40 submissions that are not final (draft, pending, rejected, disputed) so the database follows the chain even if nobody opens the page.</td></tr>
+<tr><td>Deep links</td><td><span class="mono">?ref=CODE</span> referral, <span class="mono">?task=ID</span> open a shared task after sign-in, <span class="mono">?page=help</span> public FAQ without an account, <span class="mono">?reset=TOKEN</span> and <span class="mono">?verify=TOKEN</span> email links.</td></tr>
+</table>
+
+<h1>7. Database</h1>
+<p>PostgreSQL. Money columns are <span class="mono">numeric(20,6)</span> (USDC with 6 decimals). Identifiers are UUIDs. The schema is applied at every start and is idempotent; legacy rows from the first contract version are closed by the migration.</p>
+<div class="fig">
+<svg viewBox="0 0 900 470" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, Segoe UI, Arial, sans-serif">
+  <rect width="900" height="470" fill="#f7f9ff" rx="10"/>
+  <g font-size="11" fill="#0f1c35">
+  <g stroke="#1a2f6e" stroke-width="1.6" fill="none">
+    <line x1="270" y1="85" x2="332" y2="85"/><line x1="270" y1="85" x2="270" y2="215"/>
+    <line x1="270" y1="215" x2="332" y2="215"/>
+    <line x1="560" y1="85" x2="620" y2="85"/>
+    <line x1="560" y1="215" x2="620" y2="215"/>
+    <line x1="450" y1="125" x2="450" y2="175"/>
+    <line x1="720" y1="125" x2="720" y2="175"/>
+    <line x1="170" y1="110" x2="170" y2="330"/><line x1="170" y1="330" x2="332" y2="330"/>
+    <line x1="170" y1="360" x2="332" y2="360"/>
+    <line x1="170" y1="390" x2="332" y2="390"/>
+    <line x1="170" y1="420" x2="332" y2="420"/>
+    <line x1="560" y1="330" x2="620" y2="330"/>
+  </g>
+  <rect x="40" y="50" width="230" height="70" rx="10" fill="#1a2f6e"/><text x="155" y="76" text-anchor="middle" font-weight="700" font-size="14" fill="#fff">users</text><text x="155" y="96" text-anchor="middle" fill="#dbe4ff" font-size="10.5">email, wallet, role, status, referral</text><text x="155" y="110" text-anchor="middle" fill="#dbe4ff" font-size="10.5">email_verified_at</text>
+  <rect x="332" y="55" width="228" height="70" rx="10" fill="#fff" stroke="#1a2f6e" stroke-width="1.6"/><text x="446" y="80" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">tasks</text><text x="446" y="98" text-anchor="middle" font-size="10.5">reward, slots, deadline, review_days</text><text x="446" y="112" text-anchor="middle" font-size="10.5">fund_tx, protocol, status</text>
+  <rect x="332" y="175" width="228" height="80" rx="10" fill="#fff" stroke="#1a2f6e" stroke-width="1.6"/><text x="446" y="199" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">submissions</text><text x="446" y="217" text-anchor="middle" font-size="10.5">status (7 values), proof, note</text><text x="446" y="231" text-anchor="middle" font-size="10.5">claim_at, status_at, permit_expires</text><text x="446" y="245" text-anchor="middle" font-size="10.5">unique (task, worker)</text>
+  <rect x="620" y="55" width="240" height="70" rx="10" fill="#fff" stroke="#1a2f6e" stroke-width="1.6"/><text x="740" y="80" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">contests</text><text x="740" y="98" text-anchor="middle" font-size="10.5">prizes (jsonb), prize_pool, ends_at</text><text x="740" y="112" text-anchor="middle" font-size="10.5">fund_tx, protocol, status</text>
+  <rect x="620" y="175" width="240" height="80" rx="10" fill="#fff" stroke="#1a2f6e" stroke-width="1.6"/><text x="740" y="199" text-anchor="middle" font-weight="700" font-size="13" fill="#1a2f6e">contest_entries</text><text x="740" y="217" text-anchor="middle" font-size="10.5">status pending / winner / rejected</text><text x="740" y="231" text-anchor="middle" font-size="10.5">prize_place, prize_amount, pay_tx</text><text x="740" y="245" text-anchor="middle" font-size="10.5">unique (contest, user)</text>
+  <rect x="332" y="300" width="228" height="50" rx="10" fill="#fff" stroke="#6b6580"/><text x="446" y="322" text-anchor="middle" font-weight="700" font-size="13" fill="#0f1c35">sessions / nonces</text><text x="446" y="338" text-anchor="middle" font-size="10.5">token hash, expiry; wallet nonces</text>
+  <rect x="332" y="355" width="228" height="50" rx="10" fill="#fff" stroke="#6b6580"/><text x="446" y="377" text-anchor="middle" font-weight="700" font-size="13" fill="#0f1c35">activity / notifications</text><text x="446" y="393" text-anchor="middle" font-size="10.5">wallet history; in-app messages</text>
+  <rect x="332" y="410" width="228" height="50" rx="10" fill="#fff" stroke="#6b6580"/><text x="446" y="432" text-anchor="middle" font-weight="700" font-size="13" fill="#0f1c35">email_tokens / email_outbox</text><text x="446" y="448" text-anchor="middle" font-size="10.5">one-time links; dev outbox</text>
+  <rect x="620" y="300" width="240" height="60" rx="10" fill="#fff" stroke="#6b6580"/><text x="740" y="322" text-anchor="middle" font-weight="700" font-size="13" fill="#0f1c35">uploads</text><text x="740" y="340" text-anchor="middle" font-size="10.5">images stored as bytea</text>
+  <rect x="620" y="375" width="240" height="60" rx="10" fill="#fff" stroke="#6b6580"/><text x="740" y="397" text-anchor="middle" font-weight="700" font-size="13" fill="#0f1c35">reports / audit_log</text><text x="740" y="415" text-anchor="middle" font-size="10.5">moderation and admin trace</text>
+  <text x="274" y="78" font-size="10" fill="#1a2f6e">creator</text>
+  <text x="272" y="208" font-size="10" fill="#1a2f6e">worker</text>
+  <text x="456" y="152" font-size="10" fill="#1a2f6e">1 task : n</text>
+  <text x="726" y="152" font-size="10" fill="#1a2f6e">1 contest : n</text>
+  </g>
+</svg>
+<figcaption>Figure 4. Main relationships. Every table that points to users uses the user id; deleting a user cascades to sessions, activity, notifications and tokens.</figcaption>
+</div>
+<h2>Data dictionary</h2>
+<table>
+<tr><th style="width:17%">Table</th><th>Columns and rules</th></tr>
+<tr><td>users</td><td>id, email (unique, nullable), password_hash, username (unique), display_name, wallet_address (unique, nullable), referral_code (unique), referred_by, role (<span class="mono">user, admin</span>), status (<span class="mono">active, suspended</span>), created_at, email_verified_at, email_notifications. Check: an email or a wallet must exist.</td></tr>
+<tr><td>sessions</td><td>token_hash (primary key, SHA-256), user_id, expires_at, created_at.</td></tr>
+<tr><td>nonces</td><td>nonce (primary key), expires_at: single-use wallet sign-in challenges.</td></tr>
+<tr><td>uploads</td><td>id, user_id, mime, size, data (bytea), created_at. PNG, JPEG, WebP up to 3 MB, detected by file signature.</td></tr>
+<tr><td>tasks</td><td>id (client-generated UUID, its keccak hash is the contract job id), creator_id, title, description, instructions, type, platform, url, reward numeric(20,6), slots, deadline, status (<span class="mono">open, closed, removed</span>), fund_tx (unique), created_at, protocol (1 = first contract, 2 = current), review_days.</td></tr>
+<tr><td>submissions</td><td>id, task_id, worker_id, proof_url, proof_file, note, status (<span class="mono">draft, pending, approved, rejected, disputed, refunded, split</span>), reject_reason, pay_tx (unique), created_at, reviewed_at, permit_expires, claim_at, status_at. Unique (task_id, worker_id).</td></tr>
+<tr><td>contests</td><td>id, creator_id, title, description, prompt, type, ends_at, slots, prizes (jsonb list of rank and amount), prize_pool, status, fund_tx (unique), created_at, protocol.</td></tr>
+<tr><td>contest_entries</td><td>id, contest_id, user_id, proof_url, proof_file, note, status, prize_place, prize_amount, pay_tx (unique), created_at. Unique (contest_id, user_id).</td></tr>
+<tr><td>activity</td><td>id, user_id, tx_hash, log_index, kind (<span class="mono">deposit, withdraw, fund, reward, refund</span>), amount, at. Unique (tx_hash, log_index): a transaction is never recorded twice.</td></tr>
+<tr><td>notifications</td><td>id, user_id, kind, title, body, link, read, created_at. Index on (user_id, read, created_at).</td></tr>
+<tr><td>reports</td><td>id, reporter_id, target_type (<span class="mono">task, contest, user</span>), target_id, reason, status, resolved_by, resolved_at.</td></tr>
+<tr><td>audit_log</td><td>id, actor_id, action, target, detail (jsonb), created_at: every admin action.</td></tr>
+<tr><td>email_tokens</td><td>token_hash (primary key), user_id, kind (<span class="mono">verify, reset</span>), email, expires_at, used_at, created_at.</td></tr>
+<tr><td>email_outbox</td><td>id, to_email, subject, body, created_at. Filled only when no provider is configured and not in production, so tests can read links.</td></tr>
+</table>
+<h2>Status mapping between database and contract</h2>
+<table>
+<tr><th>Contract claim</th><th>Database submission</th></tr>
+<tr><td>none (permit issued, transaction not yet sent)</td><td>draft</td></tr>
+<tr><td>Pending / Paid / Rejected / Disputed / Refunded / Split</td><td>pending / approved / rejected / disputed / refunded / split</td></tr>
+</table>
+<p>Open slots count: pending, approved, rejected, disputed, split, plus unexpired drafts. A refunded claim frees its slot, as in the contract.</p>

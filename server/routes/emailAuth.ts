@@ -34,10 +34,23 @@ route('POST', '/auth/reset', 'none', async (c) => {
 route('POST', '/auth/verify', 'none', async (c) => {
   rateLimit('verify:all', 300, 3_600_000)
   const b = await c.json()
-  const t = await consumeToken(typeof b.token === 'string' ? b.token : '', 'verify')
-  if (!t) throw new HttpError(400, 'This link is invalid or has expired. Request a new confirmation email from Settings.')
-  await sql`UPDATE users SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = ${t.userId} AND email = ${t.email}`
-  return { ok: true }
+  const token = typeof b.token === 'string' ? b.token : ''
+  const t = await consumeToken(token, 'verify')
+  if (t) {
+    await sql`UPDATE users SET email_verified_at = coalesce(email_verified_at, now()) WHERE id = ${t.userId} AND email = ${t.email}`
+    return { ok: true }
+  }
+  // ajout d'une adresse à un compte qui n'en a pas encore
+  const l = await consumeToken(token, 'link')
+  if (!l) throw new HttpError(400, 'This link is invalid or has expired. Request a new confirmation email from Settings.')
+  try {
+    const done = await one<{ id: string }>(sql`UPDATE users SET email = ${l.email}, email_verified_at = now() WHERE id = ${l.userId} AND email IS NULL RETURNING id`)
+    if (!done) throw new HttpError(409, 'This account already has an email address.')
+  } catch (e) {
+    if (e instanceof HttpError) throw e
+    throw new HttpError(409, 'This email address is already used by another account.')
+  }
+  return { ok: true, linked: true }
 })
 
 route('POST', '/auth/resend-verification', 'user', async (c) => {

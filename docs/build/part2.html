@@ -1,0 +1,163 @@
+<h1>3. Technology stack</h1>
+<table>
+<tr><th style="width:22%">Layer</th><th style="width:34%">Technology</th><th>Role</th></tr>
+<tr><td>Frontend</td><td>React 18, TypeScript, Vite 6, Tailwind CSS 3</td><td>Single-page application. Navigation is held in application state (no URL router); deep links use query parameters.</td></tr>
+<tr><td>Frontend state</td><td>TanStack Query 5</td><td>Server data, polling, cache invalidation after actions.</td></tr>
+<tr><td>Wallets</td><td>wagmi 2, viem 2, ConnectKit 1.9, Circle Modular Wallets SDK 1.x</td><td>Extension wallets and passkey smart accounts behind one hook.</td></tr>
+<tr><td>Backend</td><td>Bun runtime, TypeScript, <span class="mono">Bun.serve</span>, <span class="mono">Bun.sql</span></td><td>No web framework: a small router in <span class="mono">server/http.ts</span>. Passwords use <span class="mono">Bun.password</span> (argon2).</td></tr>
+<tr><td>Database</td><td>PostgreSQL 13 or newer (tested on 18; Neon in production)</td><td>Schema applied at startup from <span class="mono">server/schema.sql</span> (idempotent).</td></tr>
+<tr><td>Smart contract</td><td>Solidity 0.8.28 (EVM Paris), OpenZeppelin 5</td><td><span class="mono">ArcQuestVault</span>: ReentrancyGuard, SafeERC20, EIP712, ECDSA.</td></tr>
+<tr><td>Contract tooling</td><td>Foundry (forge 1.7.1)</td><td>142 tests including fuzz and invariants.</td></tr>
+<tr><td>Chain</td><td>Arc Testnet, chain id 5042002</td><td>USDC is the gas token and the only currency. USDC ERC-20 view uses 6 decimals.</td></tr>
+<tr><td>Email</td><td>Brevo transactional API (HTTP)</td><td>Verification, password reset, notifications. A database outbox is used in development.</td></tr>
+<tr><td>Hosting</td><td>Docker, Render (web service), Neon (database), GitHub</td><td>One image serves site and API. Push to main redeploys.</td></tr>
+<tr><td>Testing</td><td>bun test, forge test, Playwright</td><td>API tests, real-transaction tests on Arc Testnet, browser tests with an injected test wallet.</td></tr>
+</table>
+
+<h1>4. Project structure</h1>
+<p>Only source files are listed. Build output, dependencies, local data and secret or environment files are left out on purpose.</p>
+<pre>.
+|-- index.html                 page shell, social card tags
+|-- package.json               scripts: dev, server, lint, typecheck, test:server, contracts:*
+|-- vite.config.ts             dev proxy /api -> server, build to web/
+|-- tailwind.config.js, postcss.config.js
+|-- tsconfig.json              frontend types      tsconfig.server.json  server types
+|-- foundry.toml, remappings.txt   contract build settings
+|-- Dockerfile, .dockerignore  production image (copies web/ and server/)
+|-- render.yaml                Render blueprint (service definition)
+|-- README.md, AGENTS.md       developer notes
+|
+|-- contracts/
+|   |-- ArcQuestVault.sol      the deployed contract
+|   |-- test/                  Base, Legacy, Job, Lifecycle, Dispute, Fuzz, Invariant (.t.sol)
+|   |-- test-helpers/MockERC20.sol
+|   +-- script/                CREATE2 deploy helpers
+|
+|-- server/
+|   |-- index.ts               entry: migrate, routes, static site, reconcile loop
+|   |-- http.ts                router, sessions, cookies, validators, rate limits, notify()
+|   |-- db.ts, schema.sql      connection and full schema
+|   |-- chain.ts               RPC fallback, receipt checks, claim reads, permit signing
+|   |-- submissions.ts         sync of a submission with the chain + background reconcile
+|   |-- email.ts               providers, tokens, templates, outbox
+|   |-- static.ts              serves web/ with cache headers, blocks path traversal
+|   |-- routes/                auth, emailAuth, tasks, contests, me, admin, adminData
+|   +-- tests/                 api, contract (API vs UI fields), e2e-chain (real transactions)
+|
+|-- src/
+|   |-- main.tsx, App.tsx      providers, page switch, deep links
+|   |-- api.ts                 fetch wrapper, formatting helpers, sign-in message
+|   |-- ui.tsx                 design primitives: Card, Pill, Tabs, buttons, states
+|   |-- config.ts, rpc.ts      wagmi chain and RPC fallback list
+|   |-- context/AuthContext.tsx
+|   |-- passkey/               Circle SDK adapter and context
+|   |-- hooks/                 useWallet, useVault (all contract calls), useVaultHistory
+|   |-- contracts/vault.ts     ABI fragments and addresses
+|   |-- lib/                   deeplink, share links, time helpers
+|   +-- components/            36 screens and widgets (see section 10)
+|
++-- scripts/                   check.sh, deploy helpers</pre>
+
+<h1>5. Smart contract</h1>
+<h2>Identity</h2>
+<table>
+<tr><th style="width:28%">Item</th><th>Value</th></tr>
+<tr><td>Name</td><td><span class="mono">ArcQuestVault</span> (file <span class="mono">contracts/ArcQuestVault.sol</span>)</td></tr>
+<tr><td>Address</td><td><span class="mono">0xf0848d4325a1cbf85f4c1539194a61036df09b64</span> on Arc Testnet, verified on the Arc explorer</td></tr>
+<tr><td>Compiler</td><td>solc 0.8.28, optimizer 200 runs, EVM Paris</td></tr>
+<tr><td>Constructor</td><td><span class="mono">(IERC20 usdc, address arbiter, address claimSigner)</span>, all non-zero</td></tr>
+<tr><td>Upgradeability</td><td>None. No proxy, no owner, no pause, no fee.</td></tr>
+<tr><td>Dependencies</td><td>OpenZeppelin: IERC20, SafeERC20, ReentrancyGuard, EIP712, ECDSA</td></tr>
+</table>
+<h2>Roles</h2>
+<ul>
+<li><b>Funder (creator):</b> an address that created a job or pool. Only the funder can approve, reject, reclaim or release rewards for it.</li>
+<li><b>Worker:</b> any address with a valid claim permit.</li>
+<li><b>Arbiter:</b> decides disputes only; proposes a successor (two steps); rotates the claim signer.</li>
+<li><b>Claim signer:</b> its signature is required to register a claim. It authorises who may claim; it never moves money.</li>
+</ul>
+<h2>Constants</h2>
+<table>
+<tr><th style="width:36%">Name</th><th style="width:20%">Value</th><th>Meaning</th></tr>
+<tr><td>MIN_REVIEW_PERIOD / MAX_REVIEW_PERIOD</td><td>1 day / 14 days</td><td>Allowed review time chosen by the creator.</td></tr>
+<tr><td>DEFAULT_REVIEW_PERIOD</td><td>3 days</td><td>Used when the creator passes 0.</td></tr>
+<tr><td>DISPUTE_WINDOW</td><td>7 days</td><td>Time a rejected worker has to dispute.</td></tr>
+<tr><td>ARBITER_TIMEOUT</td><td>14 days</td><td>After this, a dispute can be split 50/50 by anyone.</td></tr>
+<tr><td>MAX_JOB_DURATION</td><td>365 days</td><td>Longest deadline from creation.</td></tr>
+<tr><td>MAX_SLOTS</td><td>10,000</td><td>Largest number of places per job.</td></tr>
+</table>
+<h2>Storage</h2>
+<ul>
+<li><span class="mono">balanceOf[address]</span>: each user's internal USDC balance.</li>
+<li><span class="mono">jobs[jobId]</span>: funder, deadline, reviewPeriod, slots, active, reward, escrow (free), locked (pending claims).</li>
+<li><span class="mono">claims[jobId][worker]</span>: status and the timestamp of the last transition.</li>
+<li><span class="mono">tasks[taskId]</span>: the discretionary pool used by contests (funder, refundableAfter, escrow).</li>
+<li><span class="mono">arbiter</span>, <span class="mono">pendingArbiter</span>, <span class="mono">claimSigner</span>, immutable <span class="mono">usdc</span>.</li>
+</ul>
+<h2>Functions</h2>
+<p>36 public functions: 18 write, 18 read.</p>
+<table>
+<tr><th style="width:30%">Function</th><th style="width:16%">Caller</th><th>Effect</th></tr>
+<tr><td>deposit(amount)</td><td>anyone</td><td>Pulls USDC, credits the amount actually received.</td></tr>
+<tr><td>withdraw(amount)</td><td>owner of balance</td><td>Sends USDC to the caller only.</td></tr>
+<tr><td>createJob(jobId, reward, slots, deadline, reviewPeriod)</td><td>creator</td><td>Debits reward x slots from the creator balance into the job escrow.</td></tr>
+<tr><td>submitClaim(jobId, expiry, signature)</td><td>worker</td><td>Checks the EIP-712 permit, reserves one reward, starts the review clock.</td></tr>
+<tr><td>approveClaim(jobId, worker)</td><td>creator</td><td>Pays the worker balance now.</td></tr>
+<tr><td>rejectClaim(jobId, worker)</td><td>creator</td><td>Allowed before the review period ends; starts the dispute window.</td></tr>
+<tr><td>finalizeClaim(jobId, worker)</td><td>anyone</td><td>After the review period, pays the worker (automatic approval).</td></tr>
+<tr><td>disputeClaim(jobId)</td><td>worker</td><td>Within 7 days of a rejection.</td></tr>
+<tr><td>releaseRejected(jobId, worker)</td><td>anyone</td><td>After 7 days without dispute, returns the reward to the job escrow and frees the slot.</td></tr>
+<tr><td>resolveDispute(jobId, worker, payWorker)</td><td>arbiter</td><td>Only before 14 days; pays the worker or refunds the creator.</td></tr>
+<tr><td>expireDispute(jobId, worker)</td><td>anyone</td><td>From 14 days, splits the reward 50/50 (odd units go to the creator).</td></tr>
+<tr><td>reclaimJob(jobId)</td><td>creator</td><td>After the deadline, moves free escrow back to the creator balance. Never touches locked funds.</td></tr>
+<tr><td>fundTask / releaseReward / refundTask</td><td>creator</td><td>Contest pool: reserve, pay a winner, recover after the unlock time.</td></tr>
+<tr><td>proposeArbiter / acceptArbiter</td><td>arbiter / pending</td><td>Two-step arbiter replacement.</td></tr>
+<tr><td>setClaimSigner(next)</td><td>arbiter</td><td>Immediate rotation of the signer key.</td></tr>
+<tr><td>Views</td><td>anyone</td><td>balanceOf, jobs, claims, tasks, arbiter, pendingArbiter, claimSigner, usdc, the seven constants, claimPermitDigest, CLAIM_PERMIT_TYPEHASH, eip712Domain.</td></tr>
+</table>
+<h2>Claim state machine</h2>
+<div class="fig">
+<svg viewBox="0 0 900 360" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, Segoe UI, Arial, sans-serif">
+  <defs><marker id="s" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#1a2f6e"/></marker></defs>
+  <rect width="900" height="360" fill="#f7f9ff" rx="10"/>
+  <rect x="20" y="150" width="90" height="46" rx="10" fill="#e9edfb" stroke="#1a2f6e"/><text x="65" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#1a2f6e">None</text>
+  <rect x="170" y="150" width="110" height="46" rx="10" fill="#fff7e0" stroke="#b7791f"/><text x="225" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#7a4f0c">Pending</text>
+  <rect x="400" y="40" width="110" height="46" rx="10" fill="#effaf3" stroke="#1a8047"/><text x="455" y="68" text-anchor="middle" font-size="13" font-weight="700" fill="#1a8047">Paid</text>
+  <rect x="400" y="150" width="110" height="46" rx="10" fill="#fdecee" stroke="#ba2b4c"/><text x="455" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#ba2b4c">Rejected</text>
+  <rect x="610" y="150" width="110" height="46" rx="10" fill="#f3eaff" stroke="#7c3aed"/><text x="665" y="178" text-anchor="middle" font-size="13" font-weight="700" fill="#6d28d9">Disputed</text>
+  <rect x="400" y="270" width="110" height="46" rx="10" fill="#eef1f5" stroke="#6b6580"/><text x="455" y="298" text-anchor="middle" font-size="13" font-weight="700" fill="#4a4560">Refunded</text>
+  <rect x="750" y="270" width="110" height="46" rx="10" fill="#eef1f5" stroke="#6b6580"/><text x="805" y="298" text-anchor="middle" font-size="13" font-weight="700" fill="#4a4560">Split 50/50</text>
+  <line x1="110" y1="173" x2="168" y2="173" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="139" y="164" text-anchor="middle" font-size="9.5" fill="#1a2f6e">submitClaim</text>
+  <line x1="280" y1="160" x2="398" y2="70" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="300" y="104" font-size="9.5" fill="#1a2f6e">approveClaim</text><text x="300" y="116" font-size="9.5" fill="#1a2f6e">finalizeClaim (after review)</text>
+  <line x1="280" y1="173" x2="398" y2="173" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="338" y="166" text-anchor="middle" font-size="9.5" fill="#1a2f6e">rejectClaim</text>
+  <line x1="510" y1="173" x2="608" y2="173" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="559" y="166" text-anchor="middle" font-size="9.5" fill="#1a2f6e">disputeClaim (7 d)</text>
+  <line x1="455" y1="196" x2="455" y2="268" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="463" y="236" font-size="9.5" fill="#1a2f6e">releaseRejected</text><text x="463" y="248" font-size="9.5" fill="#1a2f6e">(after 7 d)</text>
+  <line x1="640" y1="150" x2="512" y2="76" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="590" y="102" font-size="9.5" fill="#1a2f6e">resolveDispute(pay)</text>
+  <line x1="630" y1="196" x2="510" y2="280" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="560" y="250" font-size="9.5" fill="#1a2f6e">resolveDispute(refund)</text>
+  <line x1="700" y1="196" x2="790" y2="268" stroke="#1a2f6e" stroke-width="2" marker-end="url(#s)"/><text x="754" y="236" font-size="9.5" fill="#1a2f6e">expireDispute (14 d)</text>
+  <text x="20" y="30" font-size="12" fill="#6b6580">resolveDispute is only possible before 14 days; expireDispute only from 14 days, so the two cannot race.</text>
+</svg>
+<figcaption>Figure 2. Lifecycle of one claim in the contract. Funds move only along these arrows.</figcaption>
+</div>
+<h2>Events</h2>
+<p><span class="mono">Deposited, Withdrawn, JobCreated, ClaimSubmitted, ClaimPaid, ClaimRejected, ClaimDisputed, ClaimRefunded, DisputeResolved, DisputeExpired, JobReclaimed, TaskFunded, RewardReleased, TaskRefunded, ArbiterProposed, ArbiterChanged, ClaimSignerChanged, EIP712DomainChanged</span></p>
+<h2>EIP-712 claim permit</h2>
+<p>Typed data <span class="mono">ClaimPermit(bytes32 jobId, address worker, uint64 expiry)</span> with domain name <span class="mono">ArcQuestVault</span>, version <span class="mono">1</span>, chain id and the contract address. The server signs it with the claim signer key after validating the proof off-chain. The worker's wallet then calls <span class="mono">submitClaim</span>. Permits last 30 minutes. A claim is unique per worker and job, so a permit cannot be replayed.</p>
+<h2>Accounting invariant</h2>
+<div class="note"><span class="mono">usdc.balanceOf(vault) &gt;= sum(balanceOf) + sum(pool escrow) + sum(job escrow) + sum(job locked)</span>. Tests check the exact equality against deposits minus withdrawals.</div>
+<h2>Limits to know</h2>
+<ul>
+<li>If the USDC issuer blocklists the vault address, withdrawals would fail for everybody. The contract cannot prevent this; the operator should stop creating jobs during such an incident.</li>
+<li>The arbiter and the claim signer are trusted roles. Their powers are narrow (see above), but a compromised signer could allow fake claims until it is rotated.</li>
+<li>Contests are judged by the creator; the contract only holds and releases the prize pool.</li>
+<li>Worker claims, collection of automatic payments and withdrawals need a small network fee unless a passkey wallet with sponsored fees is used.</li>
+</ul>
+<h2>Quality evidence</h2>
+<ul>
+<li>142 Foundry tests: functions, timing boundaries to the second, EIP-712 permits, fuzz tests, three invariants.</li>
+<li>Two automated security reviews at the deepest level and static analysis (only timestamp usage reported, expected for day-scale windows).</li>
+<li>Real-transaction tests on Arc Testnet and a verified source on the explorer.</li>
+<li>No external audit yet.</li>
+</ul>
+<h2>Deployment history</h2>
+<p>Earlier test deployments (a first vault and a renamed vault without the claim protocol) are retired and not used by the application. The current address above is the only one the product reads.</p>

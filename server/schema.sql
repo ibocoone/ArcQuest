@@ -180,3 +180,12 @@ CREATE TABLE IF NOT EXISTS email_outbox (
   body text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Profil social et classement
+ALTER TABLE users ADD COLUMN IF NOT EXISTS x_handle text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_handle text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS leaderboard_visible boolean NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS show_links boolean NOT NULL DEFAULT false;
+ALTER TABLE email_tokens DROP CONSTRAINT IF EXISTS email_tokens_kind_check;
+ALTER TABLE email_tokens ADD CONSTRAINT email_tokens_kind_check CHECK (kind IN ('verify','reset','link'));
+CREATE INDEX IF NOT EXISTS submissions_approved_idx ON submissions (worker_id) WHERE status = 'approved';

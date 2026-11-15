@@ -68,12 +68,12 @@ route('POST', '/auth/register', 'none', async (c) => {
   const u = await one<AuthUser>(sql`
     INSERT INTO users (email, password_hash, username, display_name, referral_code, referred_by)
     VALUES (${email}, ${hash}, ${username}, ${local}, ${referralCode()}, ${ref})
-    RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications`)
+    RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links`)
   if (!u) throw new HttpError(500, 'Could not create the account.')
   await promoteIfAdmin({ id: u.id, email })
   await startSession(c, u.id)
   void sendVerification(u.id, email, baseUrl(c)).catch((e) => console.error('[email] verification failed:', e instanceof Error ? e.message : e))
-  const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications FROM users WHERE id = ${u.id}`)
+  const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links FROM users WHERE id = ${u.id}`)
   return { user: publicUser(fresh ?? u) }
 })
 
@@ -84,7 +84,7 @@ route('POST', '/auth/login', 'none', async (c) => {
   rateLimit(`login:${email}`, 10, 15 * 60_000)
   const fail = new HttpError(401, 'Incorrect email or password.')
   const u = await one<AuthUser & { password_hash: string | null }>(sql`
-    SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, password_hash
+    SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links, password_hash
     FROM users WHERE email = ${email}`)
   if (!u?.password_hash || !(await Bun.password.verify(password, u.password_hash))) throw fail
   if (u.status === 'suspended') throw new HttpError(403, 'This account is suspended.')
@@ -105,7 +105,7 @@ route('POST', '/auth/wallet', 'none', async (c) => {
   const address = await checkWalletProof(b)
   rateLimit(`wallet:${address}`, 20, 15 * 60_000)
   let u = await one<AuthUser>(sql`
-    SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications FROM users WHERE wallet_address = ${address}`)
+    SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links FROM users WHERE wallet_address = ${address}`)
   if (!u) {
     const short = `${address.slice(0, 6)}…${address.slice(-4)}`
     const username = await uniqueUsername(`wallet_${address.slice(2, 8)}`)
@@ -113,13 +113,13 @@ route('POST', '/auth/wallet', 'none', async (c) => {
     u = await one<AuthUser>(sql`
       INSERT INTO users (wallet_address, username, display_name, referral_code, referred_by)
       VALUES (${address}, ${username}, ${short}, ${referralCode()}, ${ref})
-      RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications`)
+      RETURNING id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links`)
   }
   if (!u) throw new HttpError(500, 'Could not sign in.')
   if (u.status === 'suspended') throw new HttpError(403, 'This account is suspended.')
   await promoteIfAdmin({ id: u.id, wallet: address })
   await startSession(c, u.id)
-  const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications FROM users WHERE id = ${u.id}`)
+  const fresh = await one<AuthUser>(sql`SELECT id, email, username, display_name, wallet_address, referral_code, role, status, created_at, email_verified_at, email_notifications, x_handle, telegram_handle, leaderboard_visible, show_links FROM users WHERE id = ${u.id}`)
   return { user: publicUser(fresh ?? u) }
 })
 

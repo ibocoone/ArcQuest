@@ -1,0 +1,123 @@
+<h1>8. API reference</h1>
+<p>JSON over HTTPS. In the browser every path is prefixed with <span class="mono">/api</span>; the production server accepts both forms and serves the web application on every other path. Access: <b>public</b> (no session), <b>user</b> (valid session), <b>admin</b> (session and admin role checked in the database on every request). Errors are <span class="mono">{"error": "message"}</span> with a status code (400 validation, 401 sign-in required, 403 forbidden or suspended, 404, 409 conflict, 429 rate limit).</p>
+<h3>Accounts and sessions</h3>
+<table>
+<tr><th style="width:8%">Verb</th><th style="width:32%">Path</th><th style="width:9%">Access</th><th>Purpose</th></tr>
+<tr><td>POST</td><td>/auth/register</td><td>public</td><td>Create an email account (optional referral code), start a session, send the confirmation email.</td></tr>
+<tr><td>POST</td><td>/auth/login</td><td>public</td><td>Email and password sign-in.</td></tr>
+<tr><td>GET</td><td>/auth/nonce</td><td>public</td><td>One-time challenge for wallet sign-in.</td></tr>
+<tr><td>POST</td><td>/auth/wallet</td><td>public</td><td>Sign in or create an account from a signed message (extension or passkey wallet).</td></tr>
+<tr><td>POST</td><td>/auth/logout</td><td>public</td><td>End the session.</td></tr>
+<tr><td>POST</td><td>/auth/forgot, /auth/reset</td><td>public</td><td>Password reset request and completion.</td></tr>
+<tr><td>POST</td><td>/auth/verify</td><td>public</td><td>Confirm an email address with a token.</td></tr>
+<tr><td>POST</td><td>/auth/resend-verification</td><td>user</td><td>New confirmation email (3 per hour).</td></tr>
+<tr><td>GET</td><td>/me</td><td>public</td><td>Current user or null; also grants the admin role to listed emails or wallets.</td></tr>
+<tr><td>POST</td><td>/me/wallet, /me/password, /me/settings</td><td>user</td><td>Link a wallet, change password, email-notification switch.</td></tr>
+</table>
+<h3>Tasks and submissions</h3>
+<table>
+<tr><th style="width:8%">Verb</th><th style="width:32%">Path</th><th style="width:9%">Access</th><th>Purpose</th></tr>
+<tr><td>GET</td><td>/tasks</td><td>user</td><td>Open tasks: search, type filter, pagination, slots taken, caller's status.</td></tr>
+<tr><td>GET</td><td>/tasks/:id</td><td>user</td><td>One task with instructions.</td></tr>
+<tr><td>POST</td><td>/tasks</td><td>user</td><td>Register a task after verifying the createJob transaction onchain. Needs a linked wallet and a confirmed email.</td></tr>
+<tr><td>POST</td><td>/tasks/:id/close</td><td>user</td><td>Creator stops new claims (database only).</td></tr>
+<tr><td>POST</td><td>/tasks/:id/claim-permit</td><td>user</td><td>Validate a proof, create or refresh a draft submission, return a signed permit.</td></tr>
+<tr><td>GET</td><td>/tasks/:id/submissions</td><td>user</td><td>Creator's review list (not drafts).</td></tr>
+<tr><td>POST</td><td>/submissions/:id/sync</td><td>user</td><td>Read the claim state from the chain and update the database; notify.</td></tr>
+<tr><td>POST</td><td>/submissions/:id/reject-reason</td><td>user</td><td>Creator stores the reason once the claim is rejected onchain.</td></tr>
+<tr><td>GET</td><td>/me/tasks, /me/submissions</td><td>user</td><td>Creator's tasks with counters; worker's submissions with deadlines.</td></tr>
+<tr><td>POST / GET</td><td>/uploads, /uploads/:id</td><td>user</td><td>Image upload (3 MB); download allowed to the owner, the task or contest creator and admins.</td></tr>
+</table>
+<h3>Contests</h3>
+<table>
+<tr><th style="width:8%">Verb</th><th style="width:32%">Path</th><th style="width:9%">Access</th><th>Purpose</th></tr>
+<tr><td>GET / POST</td><td>/contests</td><td>user</td><td>List open contests; register a contest after verifying the pool funding.</td></tr>
+<tr><td>POST</td><td>/contests/:id/close, /contests/:id/entries</td><td>user</td><td>Close a contest; enter a contest.</td></tr>
+<tr><td>GET</td><td>/contests/:id/entries</td><td>user</td><td>Creator's list of entries.</td></tr>
+<tr><td>POST</td><td>/entries/:id/award, /entries/:id/reject</td><td>user</td><td>Record a verified prize payment; dismiss an entry.</td></tr>
+<tr><td>GET</td><td>/me/contests, /me/entries</td><td>user</td><td>Own contests and entries.</td></tr>
+</table>
+<h3>Account data, notifications, safety</h3>
+<table>
+<tr><th style="width:8%">Verb</th><th style="width:32%">Path</th><th style="width:9%">Access</th><th>Purpose</th></tr>
+<tr><td>GET</td><td>/me/stats, /me/earnings, /me/referrals</td><td>user</td><td>Dashboard counters, confirmed payments, referral list.</td></tr>
+<tr><td>GET / POST</td><td>/me/activity</td><td>user</td><td>Wallet history; record a transaction after receipt verification.</td></tr>
+<tr><td>GET / POST</td><td>/notifications, /notifications/read</td><td>user</td><td>Bell content and mark as read.</td></tr>
+<tr><td>POST</td><td>/reports</td><td>user</td><td>Report a task, contest or user (10 per hour).</td></tr>
+</table>
+<h3>Administration</h3>
+<table>
+<tr><th style="width:8%">Verb</th><th style="width:32%">Path</th><th style="width:9%">Access</th><th>Purpose</th></tr>
+<tr><td>GET</td><td>/admin/overview, /admin/finance</td><td>admin</td><td>Counters; contract USDC read from the chain, funded and paid totals, 7-day activity.</td></tr>
+<tr><td>GET</td><td>/admin/disputes</td><td>admin</td><td>Disputed submissions with proofs, parties and reasons.</td></tr>
+<tr><td>GET / POST</td><td>/admin/reports, /admin/reports/:id/resolve</td><td>admin</td><td>Moderation queue: dismiss, remove content, suspend author.</td></tr>
+<tr><td>GET / POST</td><td>/admin/items, /admin/items/:kind/:id/status, /admin/items/:kind/:id/entries</td><td>admin</td><td>All tasks and contests; remove, close or restore; view entries.</td></tr>
+<tr><td>GET</td><td>/admin/payments, /admin/audit</td><td>admin</td><td>Confirmed payments; trace of admin actions.</td></tr>
+<tr><td>GET / POST</td><td>/admin/users, /admin/users/:id/status</td><td>admin</td><td>Accounts with counters; suspend or reactivate (suspension ends sessions).</td></tr>
+<tr><td>GET / POST</td><td>/admin/email-status, /admin/email-test</td><td>admin</td><td>Email configuration, test message, recent provider errors.</td></tr>
+</table>
+<h3>Rate limits (in memory, per key)</h3>
+<p>Login 10 per 15 min per email; registration 5 per hour per email and 60 per hour overall; forgot password 3 per hour per email; password change 10 per 15 min; task creation 20 per hour; claim permits 60 per hour; contest creation 10 per hour; entries 60 per hour; uploads 30 per hour; wallet sign-in 20 per 15 min per address; sync 600 per hour. Counters reset when the server restarts.</p>
+
+<h1>9. Backend internals</h1>
+<table>
+<tr><th style="width:24%">Module</th><th>Responsibility</th></tr>
+<tr><td>index.ts</td><td>Applies the schema, registers routes, serves the site from <span class="mono">web/</span>, starts the reconcile loop. Port from <span class="mono">PORT</span> or <span class="mono">API_PORT</span>. Idle timeout 60 s because chain checks can take several seconds.</td></tr>
+<tr><td>http.ts</td><td>Small router with path parameters; typed context (request, URL, params, user, cookies); validators (string length, amounts with at most 6 decimals, http links, UUIDs, transaction hashes); session lookup; admin check; rate limiter; <span class="mono">notify()</span> that writes the bell message and sends an email when allowed. Rejects non-JSON bodies on write routes.</td></tr>
+<tr><td>chain.ts</td><td>Public RPC client with ordered fallback (optional keyed endpoint first). Receipt lookup that retries for about 30 seconds. Verifiers for JobCreated, TaskFunded, RewardReleased; claim and job reads; EIP-712 permit signing; wallet signature verification (EOA then smart-account); activity extraction from a receipt; vault USDC balance.</td></tr>
+<tr><td>submissions.ts</td><td>Maps chain claim states to database statuses, records transition times, creates the right notifications, and runs the background reconcile loop.</td></tr>
+<tr><td>email.ts</td><td>Brevo sender, templates, hashed single-use tokens, notification emails, outbox for development, recent-error buffer for the admin tool. A configuration without a provider disables confirmation requirements.</td></tr>
+<tr><td>static.ts</td><td>Serves files from <span class="mono">web/</span>, long cache for hashed assets, no cache for the page shell, blocks path traversal.</td></tr>
+<tr><td>routes/*</td><td>One file per area: auth, email auth, tasks, contests, account data, admin, admin data.</td></tr>
+</table>
+<h3>Rules the server enforces for a claim permit</h3>
+<ul>
+<li>The caller has a linked wallet, is not the task creator, and the email is confirmed (when required).</li>
+<li>The task uses the current contract protocol, is open, and its deadline is more than two minutes away.</li>
+<li>One submission per account and task (a draft may be refreshed after a failed transaction).</li>
+<li>Places left: counted under a row lock so simultaneous requests never exceed the number of places.</li>
+<li>A proof is present: a link or an uploaded image (owned by the caller). The note is optional.</li>
+</ul>
+
+<h1>10. Frontend architecture</h1>
+<h2>Providers and navigation</h2>
+<p>Order in <span class="mono">main.tsx</span>: Query client, wagmi, ConnectKit, Passkey context, then <span class="mono">App</span> which adds the Auth context. Navigation is a page id held in state; a left sidebar on desktop and a drawer on mobile list the pages. Public screens (sign-in, public FAQ, legal pages, email links) are shown before the application shell.</p>
+<table>
+<tr><th style="width:22%">Page</th><th>Contents</th></tr>
+<tr><td>Dashboard</td><td>Greeting, "Get started" checklist, balances, counters, quick actions.</td></tr>
+<tr><td>Tasks</td><td>Tabs: Offers (search, filters, pagination, copy link, submit proof), My submissions (collect payment, dispute, split), My tasks (review, approve, reject with reason, release, reclaim, close). Publish form with review-time choice.</td></tr>
+<tr><td>Contests</td><td>Running contests, my entries, my contests (award prizes, recover pool), create form.</td></tr>
+<tr><td>Wallet</td><td>Balance cards, Deposit, Withdraw, History; mismatch and read-error banners.</td></tr>
+<tr><td>Earnings, Referrals</td><td>Confirmed payments; referral code, link and list.</td></tr>
+<tr><td>How it works, Support</td><td>Guides, FAQ, network details, faucet link; contact links.</td></tr>
+<tr><td>Settings</td><td>Profile, email status and notifications, linked wallet (extension or passkey), password.</td></tr>
+<tr><td>Administration</td><td>Finances, Disputes, Reports, Content, Payments, Accounts, Email, Log.</td></tr>
+</table>
+<h2>Data and errors</h2>
+<ul>
+<li>Server data goes through TanStack Query with explicit keys. Polling: task list 20 s, notifications 30 s, vault balance 15 s. Actions invalidate the related keys.</li>
+<li>All contract calls are in one hook (<span class="mono">useVault</span>): deposit, withdraw, create job, submit claim, approve, reject, finalize, dispute, release, resolve, expire, reclaim, plus reads. It records each confirmed transaction with the server.</li>
+<li>Money is formatted in one place; the sign-in message is built in <span class="mono">api.ts</span> and parsed by the server.</li>
+<li>Deposit shows its real step (checking, step 1 of 2, waiting, step 2 of 2) so users know whether the wallet or the network is the one waiting.</li>
+<li>Failures use plain-language messages; retry buttons appear when a read fails because of the network.</li>
+</ul>
+
+<h1>11. Wallets and network access</h1>
+<h2>One wallet abstraction</h2>
+<p>The hook <span class="mono">useWallet</span> returns the active address, whether it is connected, the kind (extension or passkey), and functions to sign a message, send calls and disconnect. Rule: a logged-in account linked to a wallet only ever uses that exact wallet; if another one is connected, a banner explains the mismatch and offers to disconnect it.</p>
+<h2>Passkey smart accounts (Circle Modular Wallets)</h2>
+<ul>
+<li>Created in the browser with WebAuthn; no extension or seed phrase. The address is a smart account on Arc Testnet.</li>
+<li>Transactions are user operations through Circle's bundler with a paymaster (Gas Station). The fee floor of 1 gwei priority is set explicitly because the bundler rejects zero. A deposit is one operation containing approve and deposit.</li>
+<li>Passkeys are tied to a domain: the option only shows on the hostname declared in the Circle Console. Wallets created on another hostname do not work.</li>
+</ul>
+<h2>RPC strategy</h2>
+<p>The browser tries these public endpoints in order and falls back on failure: Blockdaemon, dRPC, QuickNode, then the primary endpoint. The primary endpoint refuses some countries (Cloudflare error 1009), so it is last. The server uses the same list after an optional keyed endpoint. The wallet-extension network settings should use one of the alternative endpoints. When the primary is blocked and the others also fail, the app shows a clear retry message instead of a false zero balance.</p>
+<table>
+<tr><th style="width:30%">Endpoint</th><th>Address</th></tr>
+<tr><td>Blockdaemon</td><td><span class="mono">https://rpc.blockdaemon.testnet.arc.io</span></td></tr>
+<tr><td>dRPC</td><td><span class="mono">https://rpc.drpc.testnet.arc.io</span></td></tr>
+<tr><td>QuickNode</td><td><span class="mono">https://rpc.quicknode.testnet.arc.io</span></td></tr>
+<tr><td>Primary</td><td><span class="mono">https://rpc.testnet.arc.io</span></td></tr>
+</table>
+<p class="small">Chain id 5042002, native and fee token USDC. Faucet for test USDC: faucet.circle.com (Arc Testnet).</p>
